@@ -12,7 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/apigatewaymanagementapi"
 )
 
-// API Gateway WebSocket connection table (use DynamoDB in production)
+// API Gateway WebSocket connection table (use DynamoDB in production).
 var connections = make(map[string]bool)
 
 // Handle WebSocket events
