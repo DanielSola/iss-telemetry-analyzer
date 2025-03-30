@@ -54,3 +54,24 @@ jobs:
       - name: Upload Lambda package
         run: |
           aws s3 cp lambda_build/iss-telemetry-analyzer.zip s3://iss-telemetry-analyzer-lambda/iss-telemetry-analyzer.zip
+
+      # Step 7: Check if Lambda function exists before updating
+      - name: Check if Lambda function exists
+        id: check_lambda_exists
+        run: |
+          if aws lambda get-function --function-name iss-telemetry-analyzer-lambda; then
+            echo "Lambda function exists. Proceeding with update."
+            echo "exists=true" >> $GITHUB_ENV
+          else
+            echo "Lambda function does not exist. Skipping update."
+            echo "exists=false" >> $GITHUB_ENV
+          fi
+
+      # Step 8: Update Lambda function if it exists
+      - name: Update Lambda Function
+        if: env.exists == 'true'
+        run: |
+          aws lambda update-function-code \
+            --function-name iss-telemetry-analyzer-lambda \
+            --s3-bucket iss-telemetry-analyzer-lambda \
+            --s3-key iss-telemetry-analyzer.zip
