@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main  # Trigger the workflow on pushes to the main branch
-  workflow_dispatch: # Allow manual triggering
+  workflow_dispatch: 
 
 jobs:
   build-and-deploy:
@@ -44,10 +44,12 @@ jobs:
       - name: Ensure S3 bucket exists
         run: |
           BUCKET_NAME=iss-telemetry-analyzer-lambda
-          if ! aws s3 ls "s3://$BUCKET_NAME" 2>/dev/null; then
+          if ! aws s3 ls "s3://$BUCKET_NAME" 2>&1 | grep -q 'NoSuchBucket'; then
+            echo "Bucket $BUCKET_NAME already exists."
+          else
+            echo "Creating bucket $BUCKET_NAME..."
             aws s3 mb "s3://$BUCKET_NAME"
           fi
-
       # Step 6: Upload the package to S3
       - name: Upload Lambda package
         run: |
