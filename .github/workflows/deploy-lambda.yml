@@ -32,7 +32,7 @@ jobs:
           GOOS=linux GOARCH=amd64 go build -o main
           zip ../iss-telemetry-analyzer.zip main
 
-      # Step 4: Upload the package to S3
+      # Step 4: Configure AWS credentials
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v3
         with:
@@ -40,6 +40,15 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
+      # Step 5: Create S3 bucket if it does not exist
+      - name: Ensure S3 bucket exists
+        run: |
+          BUCKET_NAME=iss-telemetry-analyzer-lambda
+          if ! aws s3 ls "s3://$BUCKET_NAME" 2>/dev/null; then
+            aws s3 mb "s3://$BUCKET_NAME"
+          fi
+
+      # Step 6: Upload the package to S3
       - name: Upload Lambda package
         run: |
           aws s3 cp lambda_build/iss-telemetry-analyzer.zip s3://iss-telemetry-analyzer-lambda/iss-telemetry-analyzer.zip
