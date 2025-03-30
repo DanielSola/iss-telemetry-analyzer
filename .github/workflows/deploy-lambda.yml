@@ -29,8 +29,8 @@ jobs:
           git clone https://github.com/DanielSola/iss-telemetry-analyzer.git
           cd iss-telemetry-analyzer
           go mod tidy  # Ensure dependencies are installed
-          GOOS=linux GOARCH=amd64 go build -o main
-          zip ../iss-telemetry-analyzer.zip main
+          GOARCH=amd64 GOOS=linux go build -o bootstrap main.go
+          zip ../iss-telemetry-analyzer.zip bootstrap
 
       # Step 4: Configure AWS credentials
       - name: Configure AWS credentials
