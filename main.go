@@ -2,37 +2,61 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"os"
+	"math/rand"
 
+	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/apigatewaymanagementapi"
 )
 
-// Define request and response structure
-type Request struct {
-	Name string `json:"name"`
+// API Gateway WebSocket connection table (use DynamoDB in production)
+var connections = make(map[string]bool)
+
+// Handle WebSocket events
+func handler(ctx context.Context, req events.APIGatewayWebsocketProxyRequest) (events.APIGatewayProxyResponse, error) {
+	switch req.RequestContext.RouteKey {
+	case "$connect":
+		fmt.Println("New connection:", req.RequestContext.ConnectionID)
+		connections[req.RequestContext.ConnectionID] = true
+		return events.APIGatewayProxyResponse{StatusCode: 200}, nil
+
+	case "$disconnect":
+		fmt.Println("Disconnected:", req.RequestContext.ConnectionID)
+		delete(connections, req.RequestContext.ConnectionID)
+		return events.APIGatewayProxyResponse{StatusCode: 200}, nil
+
+	case "sendmessage": // Custom WebSocket route
+		return handleSendMessage(req)
+
+	default:
+		return events.APIGatewayProxyResponse{StatusCode: 400, Body: "Invalid request"}, nil
+	}
 }
 
-type Response struct {
-	Message string `json:"message"`
-}
+// Handles sending random telemetry data to all connected clients
+func handleSendMessage(req events.APIGatewayWebsocketProxyRequest) (events.APIGatewayProxyResponse, error) {
+	sess := session.Must(session.NewSession())
+	apigateway := apigatewaymanagementapi.New(sess, aws.NewConfig().WithEndpoint(req.RequestContext.DomainName+"/"+req.RequestContext.Stage))
 
-// Lambda function handler
-func handler(ctx context.Context, req Request) (Response, error) {
-	message := fmt.Sprintf("Hello, %s! Your Go Lambda is working locally!", req.Name)
-	return Response{Message: message}, nil
+	randomNumber := rand.Intn(100)
+	message := fmt.Sprintf("Random Telemetry: %d", randomNumber)
+
+	for connectionID := range connections {
+		_, err := apigateway.PostToConnection(&apigatewaymanagementapi.PostToConnectionInput{
+			ConnectionId: aws.String(connectionID),
+			Data:         []byte(message),
+		})
+		if err != nil {
+			fmt.Println("Error sending message:", err)
+		}
+	}
+
+	return events.APIGatewayProxyResponse{StatusCode: 200}, nil
 }
 
 func main() {
-	if len(os.Args) > 1 && os.Args[1] == "local" {
-		// Local testing mode
-		testEvent := Request{Name: "LocalUser"}
-		response, _ := handler(context.Background(), testEvent)
-		jsonResponse, _ := json.Marshal(response)
-		fmt.Println(string(jsonResponse))
-	} else {
-		// Run on AWS Lambda
-		lambda.Start(handler)
-	}
+	lambda.Start(handler)
 }
