@@ -16,6 +16,40 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 )
 
+type Record struct {
+	EventSource    string
+	EventSourceArn string
+	AWSRegion      string
+	S3             events.S3Entity
+	SQS            events.SQSMessage
+	SNS            events.SNSEntity
+}
+
+// Event incoming event
+type Event struct {
+	Records []Record
+}
+
+func detectEventType(event json.RawMessage) (string, error) {
+	// Try parsing as a Kinesis event
+	var kinesisEvent events.KinesisEvent
+	if err := json.Unmarshal(event, &kinesisEvent); err == nil {
+		if len(kinesisEvent.Records) > 0 && kinesisEvent.Records[0].EventSource == "aws:kinesis" {
+			return "kinesis", nil
+		}
+	}
+
+	// Try parsing as an API Gateway WebSocket event
+	var websocketEvent events.APIGatewayWebsocketProxyRequest
+	if err := json.Unmarshal(event, &websocketEvent); err == nil {
+		if websocketEvent.RequestContext.EventType != "" {
+			return "websocket", nil
+		}
+	}
+
+	return "", fmt.Errorf("unknown event type")
+}
+
 var (
 	sess       = session.Must(session.NewSession())
 	dynamoDB   = dynamodb.New(sess)
@@ -131,21 +165,42 @@ func deleteConnection(connectionID string) error {
 
 // Determine which handler to start based on event type
 func main() {
-	lambda.Start(func(ctx context.Context, event interface{}) (interface{}, error) {
-		eventJSON, err := json.MarshalIndent(event, "", "  ")
+	lambda.Start(func(ctx context.Context, event json.RawMessage) (interface{}, error) {
+		eventType, err := detectEventType(event)
+
 		if err != nil {
-			fmt.Println("Error marshaling event:", err)
-		} else {
-			fmt.Println("Event:", string(eventJSON))
+			fmt.Println("Error detecting event type:", err)
+			return nil, err
 		}
 
-		switch e := event.(type) {
-		case events.KinesisEvent:
-			return nil, kinesisHandler(ctx, e)
-		case events.APIGatewayWebsocketProxyRequest:
-			return manageWebSocket(ctx, e)
+		// Event handling based on the event type
+		switch eventType {
+		case "kinesis":
+			// Unmarshal the event into KinesisEvent
+			var kinesisEvent events.KinesisEvent
+			err := json.Unmarshal(event, &kinesisEvent)
+			if err != nil {
+				fmt.Printf("Error unmarshalling Kinesis event: %v\n", err)
+				return nil, err
+			}
+
+			// You likely want to return the result or a message instead of nil.
+			return nil, kinesisHandler(ctx, kinesisEvent)
+		case "websocket":
+			// Unmarshal the event into KinesisEvent
+			var websocketEvent events.APIGatewayWebsocketProxyRequest
+			err := json.Unmarshal(event, &websocketEvent)
+			if err != nil {
+				fmt.Printf("Error unmarshalling Kinesis event: %v\n", err)
+				return nil, err
+			}
+
+			// You likely want to return the result or a message instead of nil.
+
+			return manageWebSocket(ctx, websocketEvent)
 		default:
-			return nil, fmt.Errorf("unknown event type")
+			// Make sure you handle unknown events properly.
+			return nil, fmt.Errorf("unknown event type: %s", eventType)
 		}
 	})
 }
