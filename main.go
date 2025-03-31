@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -131,7 +132,12 @@ func deleteConnection(connectionID string) error {
 // Determine which handler to start based on event type
 func main() {
 	lambda.Start(func(ctx context.Context, event interface{}) (interface{}, error) {
-		fmt.Printf("Event: %s\n", event)
+		eventJSON, err := json.MarshalIndent(event, "", "  ")
+		if err != nil {
+			fmt.Println("Error marshaling event:", err)
+		} else {
+			fmt.Println("Event:", string(eventJSON))
+		}
 
 		switch e := event.(type) {
 		case events.KinesisEvent:
