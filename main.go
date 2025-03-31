@@ -131,6 +131,8 @@ func deleteConnection(connectionID string) error {
 // Determine which handler to start based on event type
 func main() {
 	lambda.Start(func(ctx context.Context, event interface{}) (interface{}, error) {
+		fmt.Printf("Event: %s\n", event)
+
 		switch e := event.(type) {
 		case events.KinesisEvent:
 			return nil, kinesisHandler(ctx, e)
