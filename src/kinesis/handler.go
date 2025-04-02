@@ -38,6 +38,7 @@ func Handler(ctx context.Context, kinesisEvent events.KinesisEvent, apiGateway *
 		err := json.Unmarshal(dataBytes, &telemetryData)
 
 		if err != nil {
+			fmt.Print(err)
 			fmt.Println("Cannot read kinesis telemetry data")
 		}
 
