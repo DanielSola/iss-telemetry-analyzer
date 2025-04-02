@@ -67,7 +67,7 @@ func Predict(value float64) float64 {
 
 	score := response.Scores[0].Score
 	fmt.Println("-----------------")
-	fmt.Println("Value: ", score)
+	fmt.Println("Value: ", value)
 	fmt.Println("Anomaly Score: ", score)
 
 	return score
