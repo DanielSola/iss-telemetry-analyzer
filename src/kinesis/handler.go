@@ -2,7 +2,6 @@ package kinesis
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"iss-telemetry-analyzer/src/websocket"
 
@@ -22,12 +21,7 @@ func Handler(ctx context.Context, kinesisEvent events.KinesisEvent, apiGateway *
 	// Iterate over each record in the Kinesis event
 	for _, record := range kinesisEvent.Records {
 		// Decode the Kinesis data
-		dataBytes, err := base64.StdEncoding.DecodeString(string(record.Kinesis.Data))
-
-		if err != nil {
-			fmt.Printf("Failed to decode Kinesis data: %v\n", err)
-			continue
-		}
+		dataBytes := record.Kinesis.Data
 
 		fmt.Printf("Received Kinesis record: %s\n", dataBytes)
 
@@ -37,6 +31,7 @@ func Handler(ctx context.Context, kinesisEvent events.KinesisEvent, apiGateway *
 				ConnectionId: aws.String(connection.ConnectionID),
 				Data:         dataBytes,
 			})
+
 			if err != nil {
 				fmt.Printf("Error sending message to connection %s: %v\n", connection.ConnectionID, err)
 			}
