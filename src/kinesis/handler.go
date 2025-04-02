@@ -13,9 +13,9 @@ import (
 )
 
 type TelemetryData struct {
-	Name      string  `json:"name"`      // Name of the telemetry data
-	Value     float64 `json:"value"`     // Value of the telemetry data
-	Timestamp string  `json:"timestamp"` // Timestamp of the telemetry data
+	Name      string `json:"name"`      // Name of the telemetry data
+	Value     string `json:"value"`     // Value of the telemetry data
+	Timestamp string `json:"timestamp"` // Timestamp of the telemetry data
 }
 
 func Handler(ctx context.Context, kinesisEvent events.KinesisEvent, apiGateway *apigatewaymanagementapi.ApiGatewayManagementApi) error {
