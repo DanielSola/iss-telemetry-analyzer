@@ -19,6 +19,11 @@ type TelemetryData struct {
 	Timestamp string `json:"timestamp"` // Timestamp of the telemetry data
 }
 
+type WebSocketResponse struct {
+	TelemetryData TelemetryData `json:"telemetryData"` // Original telemetry data
+	AnomalyScore  float64       `json:"anomalyScore"`  // Anomaly score
+}
+
 func Handler(ctx context.Context, kinesisEvent events.KinesisEvent, apiGateway *apigatewaymanagementapi.ApiGatewayManagementApi) error {
 	// Retrieve all active WebSocket connections from DynamoDB
 	connections, err := websocket.GetActiveConnections()
@@ -53,13 +58,24 @@ func Handler(ctx context.Context, kinesisEvent events.KinesisEvent, apiGateway *
 			continue
 		}
 
-		sagemaker.Predict(value)
+		anomalyScore := sagemaker.Predict(value)
+
+		response := WebSocketResponse{
+			TelemetryData: telemetryData,
+			AnomalyScore:  anomalyScore,
+		}
+
+		responseBytes, err := json.Marshal(response)
+
+		if err != nil {
+			fmt.Printf("Error marshaling WebSocket response: %v\n", err)
+		}
 
 		// Send data to all active WebSocket connections
 		for _, connection := range connections {
 			_, err := apiGateway.PostToConnection(&apigatewaymanagementapi.PostToConnectionInput{
 				ConnectionId: aws.String(connection.ConnectionID),
-				Data:         dataBytes,
+				Data:         responseBytes,
 			})
 
 			if err != nil {
