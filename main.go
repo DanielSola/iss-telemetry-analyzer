@@ -50,8 +50,10 @@ func detectEventType(event json.RawMessage) (string, error) {
 }
 
 var (
-	sess       = session.Must(session.NewSession())
-	apiURL     = os.Getenv("API_GATEWAY_URL") // Get API Gateway URL from environment variable
+	sess                 = session.Must(session.NewSession())
+	apiURL               = os.Getenv("API_GATEWAY_URL")         // Get API Gateway URL from environment variable
+	sagemakerEndpointURL = os.Getenv("SAGEMAKER_ENDPOINT_NAME") // TODO: Leer el endpoint de aqui y hacer predicciones
+
 	apiGateway *apigatewaymanagementapi.ApiGatewayManagementApi
 )
 

@@ -3,6 +3,7 @@ package kinesis
 import (
 	"context"
 	"fmt"
+	"iss-telemetry-analyzer/src/sagemaker"
 	"iss-telemetry-analyzer/src/websocket"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -24,6 +25,8 @@ func Handler(ctx context.Context, kinesisEvent events.KinesisEvent, apiGateway *
 		dataBytes := record.Kinesis.Data
 
 		fmt.Printf("Received Kinesis record: %s\n", dataBytes)
+
+		sagemaker.Predict()
 
 		// Send data to all active WebSocket connections
 		for _, connection := range connections {
