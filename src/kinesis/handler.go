@@ -2,6 +2,7 @@ package kinesis
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"iss-telemetry-analyzer/src/sagemaker"
 	"iss-telemetry-analyzer/src/websocket"
@@ -10,6 +11,12 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/apigatewaymanagementapi"
 )
+
+type TelemetryData struct {
+	Name      string  `json:"name"`      // Name of the telemetry data
+	Value     float64 `json:"value"`     // Value of the telemetry data
+	Timestamp string  `json:"timestamp"` // Timestamp of the telemetry data
+}
 
 func Handler(ctx context.Context, kinesisEvent events.KinesisEvent, apiGateway *apigatewaymanagementapi.ApiGatewayManagementApi) error {
 	// Retrieve all active WebSocket connections from DynamoDB
@@ -26,7 +33,17 @@ func Handler(ctx context.Context, kinesisEvent events.KinesisEvent, apiGateway *
 
 		fmt.Printf("Received Kinesis record: %s\n", dataBytes)
 
-		sagemaker.Predict()
+		var telemetryData TelemetryData
+
+		err := json.Unmarshal(dataBytes, &telemetryData)
+
+		if err != nil {
+			fmt.Println("Cannot read kinesis telemetry data")
+		}
+
+		fmt.Printf("Telemetry Data: %+v\n", telemetryData)
+
+		sagemaker.Predict(3000)
 
 		// Send data to all active WebSocket connections
 		for _, connection := range connections {

@@ -18,7 +18,7 @@ type SageMakerResponse struct {
 	} `json:"scores"`
 }
 
-func Predict() {
+func Predict(value float64) float64 {
 	// Read endpoint name from environment variable
 	endpointName := os.Getenv("SAGEMAKER_ENDPOINT_NAME")
 
@@ -39,7 +39,7 @@ func Predict() {
 	// Prepare payload (Modify based on model input format)
 	payload := map[string]interface{}{
 		"instances": []map[string]any{
-			{"features": []float64{3000}}, // Example input
+			{"features": []float64{value}}, // Example input
 		},
 	}
 
@@ -68,4 +68,6 @@ func Predict() {
 	score := response.Scores[0].Score
 
 	fmt.Println("Anomaly Score: ", score)
+
+	return score
 }
