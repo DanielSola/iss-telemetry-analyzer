@@ -12,6 +12,12 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sagemakerruntime"
 )
 
+type SageMakerResponse struct {
+	Scores []struct {
+		Score float64 `json:"score"`
+	} `json:"scores"`
+}
+
 func Predict() {
 	// Read endpoint name from environment variable
 	endpointName := os.Getenv("SAGEMAKER_ENDPOINT_NAME")
@@ -51,5 +57,15 @@ func Predict() {
 		log.Fatalf("failed to invoke endpoint: %v", err)
 	}
 
-	fmt.Println("Response:", string(output.Body))
+	var response SageMakerResponse
+
+	err = json.Unmarshal(output.Body, &response)
+
+	if err != nil {
+		log.Fatalf("failed to parse response: %v", err)
+	}
+
+	score := response.Scores[0].Score
+
+	fmt.Println("Anomaly Score: ", score)
 }
