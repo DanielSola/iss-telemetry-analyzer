@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"iss-telemetry-analyzer/src/sagemaker"
 	"iss-telemetry-analyzer/src/websocket"
+	"strconv"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go/aws"
@@ -44,7 +45,15 @@ func Handler(ctx context.Context, kinesisEvent events.KinesisEvent, apiGateway *
 
 		fmt.Printf("Telemetry Data: %+v\n", telemetryData)
 
-		sagemaker.Predict(3000)
+		// Convert Value to float64
+		value, err := strconv.ParseFloat(telemetryData.Value, 64)
+
+		if err != nil {
+			fmt.Printf("Error converting value to float64: %v\n", err)
+			continue
+		}
+
+		sagemaker.Predict(value)
 
 		// Send data to all active WebSocket connections
 		for _, connection := range connections {
