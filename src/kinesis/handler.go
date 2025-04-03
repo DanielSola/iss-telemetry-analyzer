@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"iss-telemetry-analyzer/src/sagemaker"
 	"iss-telemetry-analyzer/src/websocket"
+	"math/rand"
 	"strconv"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -56,9 +56,11 @@ func Handler(ctx context.Context, kinesisEvent events.KinesisEvent, apiGateway *
 		if err != nil {
 			fmt.Printf("Error converting value to float64: %v\n", err)
 			continue
+		} else {
+			fmt.Println("Received value: ", value)
 		}
 
-		anomalyScore := sagemaker.Predict(value)
+		anomalyScore := rand.Float64()
 
 		response := WebSocketResponse{
 			TelemetryData: telemetryData,
