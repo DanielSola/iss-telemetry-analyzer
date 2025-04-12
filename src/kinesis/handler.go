@@ -76,6 +76,7 @@ func Handler(ctx context.Context, kinesisEvent events.KinesisEvent, apiGateway *
 
 	// Process completed 5-second buckets
 	processedBuckets := processCompletedBuckets()
+
 	for _, bucket := range processedBuckets {
 		// Get anomaly score from SageMaker RCF
 		features := []float64{
@@ -112,6 +113,7 @@ func Handler(ctx context.Context, kinesisEvent events.KinesisEvent, apiGateway *
 // bufferData adds telemetry data to a 5-second bucket in DynamoDB
 func bufferData(data TelemetryData) error {
 	ts, err := time.Parse(time.RFC3339, data.Timestamp)
+
 	if err != nil {
 		return fmt.Errorf("invalid timestamp: %v", err)
 	}
@@ -127,12 +129,15 @@ func bufferData(data TelemetryData) error {
 			"BucketKey": {S: aws.String(bucketKey)},
 		},
 	})
+
 	if err != nil {
 		return fmt.Errorf("failed to retrieve bucket: %v", err)
 	}
 
 	var existingData []TelemetryData
+
 	if result.Item != nil {
+		fmt.Println("result.Item", result.Item)
 		// Unmarshal existing data if the bucket exists
 		if err := dynamodbattribute.UnmarshalMap(result.Item, &existingData); err != nil {
 			fmt.Printf("Failed to unmarshal existing bucket data: %v\n", err)
@@ -148,6 +153,7 @@ func bufferData(data TelemetryData) error {
 		"BucketKey": bucketKey,
 		"Data":      existingData,
 	})
+
 	if err != nil {
 		return fmt.Errorf("failed to marshal data: %v", err)
 	}
@@ -157,6 +163,7 @@ func bufferData(data TelemetryData) error {
 		TableName: aws.String(dynamoDBTableName),
 		Item:      item,
 	})
+
 	if err != nil {
 		return fmt.Errorf("failed to save data to DynamoDB: %v", err)
 	}
@@ -170,22 +177,24 @@ func processCompletedBuckets() []ProcessedData {
 	var processed []ProcessedData
 
 	// Scan DynamoDB for buckets older than 5 seconds
-	result, err := dynamoDBClient.Scan(&dynamodb.ScanInput{
-		TableName: aws.String(dynamoDBTableName),
-	})
+	result, err := dynamoDBClient.Scan(&dynamodb.ScanInput{TableName: aws.String(dynamoDBTableName)})
+
 	if err != nil {
 		fmt.Printf("Failed to scan DynamoDB: %v\n", err)
 		return processed
 	}
 
 	for _, item := range result.Items {
+
 		var record struct {
 			BucketKey string          `json:"BucketKey"`
 			Data      []TelemetryData `json:"Data"`
 		}
 
+		fmt.Printf("Unmarshaled record: %+v\n", record)
+
 		if err := dynamodbattribute.UnmarshalMap(item, &record); err != nil {
-			fmt.Printf("Failed to unmarshal DynamoDB item: %v\n", err)
+			fmt.Printf("Failed to unmarshal DynamoDB item: %v\nRaw item: %+v\n", err, item)
 			continue
 		}
 
