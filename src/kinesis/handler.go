@@ -7,12 +7,14 @@ import (
 	"iss-telemetry-analyzer/src/sagemaker"
 	"iss-telemetry-analyzer/src/websocket"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/apigatewaymanagementapi"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 )
 
 type TelemetryData struct {
@@ -32,12 +34,17 @@ type ProcessedData struct {
 	AnomalyScore    float64 `json:"anomaly_score"`
 }
 
-// Buffer for 5-second windows (global for simplicity; consider a state store like DynamoDB for production)
 var (
-	buffer      = make(map[string][]TelemetryData)
-	lastValues  = map[string]float64{"FLOWRATE": 0, "PRESSURE": 0, "TEMPERATURE": 0}
-	bufferMutex sync.Mutex
+	dynamoDBClient    *dynamodb.DynamoDB
+	dynamoDBTableName = "TelemetryData"
+	lastValues        = map[string]float64{"FLOWRATE": 0, "PRESSURE": 0, "TEMPERATURE": 0}
+	chunkSizeSeconds  = 5
 )
+
+func init() {
+	// Initialize DynamoDB client
+	dynamoDBClient = dynamodb.New(session.Must(session.NewSession()))
+}
 
 func Handler(ctx context.Context, kinesisEvent events.KinesisEvent, apiGateway *apigatewaymanagementapi.ApiGatewayManagementApi) error {
 	// Retrieve WebSocket connections
@@ -76,10 +83,11 @@ func Handler(ctx context.Context, kinesisEvent events.KinesisEvent, apiGateway *
 			bucket.FlowChangeRate, bucket.PressChangeRate, bucket.TempChangeRate,
 		}
 
-		bucket.AnomalyScore = sagemaker.Predict(features) // Assumes SageMaker expects a 6D vector
+		bucket.AnomalyScore = sagemaker.Predict(features)
 
 		// Marshal response
 		responseBytes, err := json.Marshal(bucket)
+
 		if err != nil {
 			fmt.Printf("Error marshaling response: %v\n", err)
 			continue
@@ -91,6 +99,7 @@ func Handler(ctx context.Context, kinesisEvent events.KinesisEvent, apiGateway *
 				ConnectionId: aws.String(conn.ConnectionID),
 				Data:         responseBytes,
 			})
+
 			if err != nil {
 				fmt.Printf("Error sending to %s: %v\n", conn.ConnectionID, err)
 			}
@@ -100,7 +109,7 @@ func Handler(ctx context.Context, kinesisEvent events.KinesisEvent, apiGateway *
 	return nil
 }
 
-// bufferData adds telemetry data to a 5-second bucket
+// bufferData adds telemetry data to a 5-second bucket in DynamoDB
 func bufferData(data TelemetryData) error {
 	ts, err := time.Parse(time.RFC3339, data.Timestamp)
 	if err != nil {
@@ -111,35 +120,78 @@ func bufferData(data TelemetryData) error {
 	bucketStart := ts.Truncate(5 * time.Second)
 	bucketKey := bucketStart.Format(time.RFC3339)
 
-	bufferMutex.Lock()
-	defer bufferMutex.Unlock()
+	// Marshal data to DynamoDB format
+	item, err := dynamodbattribute.MarshalMap(map[string]interface{}{
+		"BucketKey": bucketKey,
+		"Data":      data,
+	})
 
-	buffer[bucketKey] = append(buffer[bucketKey], data)
+	if err != nil {
+		return fmt.Errorf("failed to marshal data: %v", err)
+	}
+
+	// Save to DynamoDB
+	_, err = dynamoDBClient.PutItem(&dynamodb.PutItemInput{
+		TableName: aws.String(dynamoDBTableName),
+		Item:      item,
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to save data to DynamoDB: %v", err)
+	}
+
 	return nil
 }
 
 // processCompletedBuckets processes all buckets older than 5 seconds from now
 func processCompletedBuckets() []ProcessedData {
-	bufferMutex.Lock()
-	defer bufferMutex.Unlock()
-
 	now := time.Now().UTC()
 	var processed []ProcessedData
 
-	for bucketKey, data := range buffer {
-		bucketStart, err := time.Parse(time.RFC3339, bucketKey)
+	// Scan DynamoDB for buckets older than 5 seconds
+	result, err := dynamoDBClient.Scan(&dynamodb.ScanInput{
+		TableName: aws.String(dynamoDBTableName),
+	})
+	if err != nil {
+		fmt.Printf("Failed to scan DynamoDB: %v\n", err)
+		return processed
+	}
+
+	for _, item := range result.Items {
+		var record struct {
+			BucketKey string          `json:"BucketKey"`
+			Data      []TelemetryData `json:"Data"`
+		}
+
+		if err := dynamodbattribute.UnmarshalMap(item, &record); err != nil {
+			fmt.Printf("Failed to unmarshal DynamoDB item: %v\n", err)
+			continue
+		}
+
+		bucketStart, err := time.Parse(time.RFC3339, record.BucketKey)
+
 		if err != nil {
-			fmt.Printf("Invalid bucket key %s: %v\n", bucketKey, err)
+			fmt.Printf("Invalid bucket key %s: %v\n", record.BucketKey, err)
 			continue
 		}
 
 		// Process if bucket is complete (older than 5s from now)
 		if now.Sub(bucketStart) >= 5*time.Second {
-			processedData := processBucket(bucketKey, data)
+			processedData := processBucket(record.BucketKey, record.Data)
 			if processedData != nil {
 				processed = append(processed, *processedData)
 			}
-			delete(buffer, bucketKey)
+
+			// Delete processed bucket from DynamoDB
+			_, err := dynamoDBClient.DeleteItem(&dynamodb.DeleteItemInput{
+				TableName: aws.String(dynamoDBTableName),
+				Key: map[string]*dynamodb.AttributeValue{
+					"BucketKey": {S: aws.String(record.BucketKey)},
+				},
+			})
+			if err != nil {
+				fmt.Printf("Failed to delete bucket %s: %v\n", record.BucketKey, err)
+			}
 		}
 	}
 
@@ -171,9 +223,9 @@ func processBucket(bucketKey string, data []TelemetryData) *ProcessedData {
 		FLOWRATE:        current["FLOWRATE"],
 		PRESSURE:        current["PRESSURE"],
 		TEMPERATURE:     current["TEMPERATURE"],
-		FlowChangeRate:  (current["FLOWRATE"] - lastValues["FLOWRATE"]) / 5,
-		PressChangeRate: (current["PRESSURE"] - lastValues["PRESSURE"]) / 5,
-		TempChangeRate:  (current["TEMPERATURE"] - lastValues["TEMPERATURE"]) / 5,
+		FlowChangeRate:  (current["FLOWRATE"] - lastValues["FLOWRATE"]) / float64(chunkSizeSeconds),
+		PressChangeRate: (current["PRESSURE"] - lastValues["PRESSURE"]) / float64(chunkSizeSeconds),
+		TempChangeRate:  (current["TEMPERATURE"] - lastValues["TEMPERATURE"]) / float64(chunkSizeSeconds),
 	}
 
 	// Update last values for next bucket
