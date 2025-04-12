@@ -120,22 +120,43 @@ func bufferData(data TelemetryData) error {
 	bucketStart := ts.Truncate(5 * time.Second)
 	bucketKey := bucketStart.Format(time.RFC3339)
 
-	// Marshal data to DynamoDB format
+	// Retrieve existing bucket data
+	result, err := dynamoDBClient.GetItem(&dynamodb.GetItemInput{
+		TableName: aws.String(dynamoDBTableName),
+		Key: map[string]*dynamodb.AttributeValue{
+			"BucketKey": {S: aws.String(bucketKey)},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to retrieve bucket: %v", err)
+	}
+
+	var existingData []TelemetryData
+	if result.Item != nil {
+		// Unmarshal existing data if the bucket exists
+		if err := dynamodbattribute.UnmarshalMap(result.Item, &existingData); err != nil {
+			fmt.Printf("Failed to unmarshal existing bucket data: %v\n", err)
+			return fmt.Errorf("failed to unmarshal existing bucket data: %v", err)
+		}
+	}
+
+	// Append new data to the existing slice
+	existingData = append(existingData, data)
+
+	// Marshal updated data to DynamoDB format
 	item, err := dynamodbattribute.MarshalMap(map[string]interface{}{
 		"BucketKey": bucketKey,
-		"Data":      data,
+		"Data":      existingData,
 	})
-
 	if err != nil {
 		return fmt.Errorf("failed to marshal data: %v", err)
 	}
 
-	// Save to DynamoDB
+	// Save updated bucket to DynamoDB
 	_, err = dynamoDBClient.PutItem(&dynamodb.PutItemInput{
 		TableName: aws.String(dynamoDBTableName),
 		Item:      item,
 	})
-
 	if err != nil {
 		return fmt.Errorf("failed to save data to DynamoDB: %v", err)
 	}
