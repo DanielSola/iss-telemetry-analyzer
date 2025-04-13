@@ -95,6 +95,7 @@ func Handler(ctx context.Context, kinesisEvent events.KinesisEvent, apiGateway *
 
 		bucket.AnomalyScore = anomalyScore
 
+		fmt.Println("Store anomaly score", anomalyScore)
 		dynamo.StoreAnomalyScore(dynamoDBClient, anomalyScore)
 
 		// Marshal response
@@ -159,7 +160,6 @@ func bufferData(data TelemetryData) error {
 	existingBucket.Data = append(existingBucket.Data, data)
 
 	if existingBucket.BucketKey == nil {
-		fmt.Println("BucketKey is nil")
 		existingBucket.BucketKey = aws.String(bucketKey) // Set it to the current bucket key
 	}
 
@@ -202,8 +202,6 @@ func processCompletedBuckets() []ProcessedData {
 			BucketKey string          `json:"BucketKey"`
 			Data      []TelemetryData `json:"Data"`
 		}
-
-		fmt.Printf("Unmarshaled record: %+v\n", record)
 
 		if err := dynamodbattribute.UnmarshalMap(item, &record); err != nil {
 			fmt.Printf("Failed to unmarshal DynamoDB item: %v\nRaw item: %+v\n", err, item)
