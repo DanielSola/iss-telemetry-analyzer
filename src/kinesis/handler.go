@@ -18,7 +18,7 @@ import (
 )
 
 type DynamoData struct {
-	BucketKey string          `dynamodbav:"BucketKey"` // Correct tag for DynamoDB
+	BucketKey *string         `dynamodbav:"BucketKey"` // Correct tag for DynamoDB
 	Data      []TelemetryData `dynamodbav:"Data"`      // Correct tag for DynamoDB
 }
 
@@ -154,6 +154,12 @@ func bufferData(data TelemetryData) error {
 
 	// Append new data to the existing slice
 	existingBucket.Data = append(existingBucket.Data, data)
+
+	if existingBucket.BucketKey == nil {
+		fmt.Println("BucketKey is nil")
+		existingBucket.BucketKey = aws.String(bucketKey) // Set it to the current bucket key
+	}
+
 	// Marshal updated data to DynamoDB format
 	item, err := dynamodbattribute.MarshalMap(existingBucket)
 
