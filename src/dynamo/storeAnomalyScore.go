@@ -26,9 +26,11 @@ func StoreAnomalyScore(dynamoDBClient *dynamodb.DynamoDB, newScore float64) erro
 	var existingScores []float64
 
 	if result.Item != nil {
+		fmt.Println("DISTINTO 0")
 		// Unmarshal existing data if the item exists
 		if err := dynamodbattribute.UnmarshalMap(result.Item, &existingScores); err != nil {
 			fmt.Printf("Failed to unmarshal existing scores: %v\n", err)
+			fmt.Println("MARSHAL ERROR ", err)
 			return fmt.Errorf("failed to unmarshal existing scores: %w", err)
 		}
 	} else {
