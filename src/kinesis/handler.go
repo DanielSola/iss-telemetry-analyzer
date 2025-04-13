@@ -15,6 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/apigatewaymanagementapi"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+	"github.com/go-redis/redis/v8"
 )
 
 type DynamoData struct {
@@ -51,7 +52,12 @@ func init() {
 	dynamoDBClient = dynamodb.New(session.Must(session.NewSession()))
 }
 
-func Handler(ctx context.Context, kinesisEvent events.KinesisEvent, apiGateway *apigatewaymanagementapi.ApiGatewayManagementApi) error {
+func storeAnomalyScoreInRedis(ctx context.Context, redisClient *redis.Client, key string, score float64) error {
+	// Store the anomaly score in Redis with a 24-hour expiration
+	return redisClient.Set(ctx, key, strconv.FormatFloat(score, 'f', -1, 64), 24*time.Hour).Err()
+}
+
+func Handler(ctx context.Context, kinesisEvent events.KinesisEvent, apiGateway *apigatewaymanagementapi.ApiGatewayManagementApi, redisClient *redis.Client) error {
 	// Retrieve WebSocket connections
 	connections, err := websocket.GetActiveConnections()
 	if err != nil {
@@ -89,7 +95,14 @@ func Handler(ctx context.Context, kinesisEvent events.KinesisEvent, apiGateway *
 			bucket.FlowChangeRate, bucket.PressChangeRate, bucket.TempChangeRate,
 		}
 
-		bucket.AnomalyScore = sagemaker.Predict(features)
+		var AnomalyScore = sagemaker.Predict(features)
+
+		bucket.AnomalyScore = AnomalyScore
+
+		redisKey := fmt.Sprintf("anomaly:%s", bucket.Timestamp) // Use a unique key for each bucket
+		if err := storeAnomalyScoreInRedis(ctx, redisClient, redisKey, AnomalyScore); err != nil {
+			fmt.Printf("Error storing anomaly score in Redis: %v\n", err)
+		}
 
 		// Marshal response
 		responseBytes, err := json.Marshal(bucket)

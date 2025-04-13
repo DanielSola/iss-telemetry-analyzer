@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/apigatewaymanagementapi"
+	"github.com/go-redis/redis/v8"
 )
 
 type Record struct {
@@ -53,17 +54,27 @@ var (
 	sess                 = session.Must(session.NewSession())
 	apiURL               = os.Getenv("API_GATEWAY_URL")         // Get API Gateway URL from environment variable
 	sagemakerEndpointURL = os.Getenv("SAGEMAKER_ENDPOINT_NAME") // TODO: Leer el endpoint de aqui y hacer predicciones
-
-	apiGateway *apigatewaymanagementapi.ApiGatewayManagementApi
+	redisEndpointURL     = os.Getenv("CACHE_URL")               // TODO: Leer el endpoint de aqui y hacer predicciones
+	apiGateway           *apigatewaymanagementapi.ApiGatewayManagementApi
+	RedisClient          *redis.Client
 )
 
-// Initialize API Gateway Management API dynamically
+// Initialize API Gateway Management API and Redis client dynamically
 func init() {
 	if apiURL == "" {
 		fmt.Println("Error: API_GATEWAY_URL environment variable not set")
 		os.Exit(1)
 	}
 	apiGateway = apigatewaymanagementapi.New(sess, aws.NewConfig().WithEndpoint(apiURL))
+
+	if redisEndpointURL == "" {
+		fmt.Println("Error: CACHE_URL environment variable not set")
+		os.Exit(1)
+	}
+
+	RedisClient = redis.NewClient(&redis.Options{
+		Addr: redisEndpointURL,
+	})
 }
 
 // Determine which handler to start based on event type
@@ -89,7 +100,7 @@ func main() {
 			}
 
 			// You likely want to return the result or a message instead of nil.
-			return nil, kinesis.Handler(ctx, kinesisEvent, apiGateway)
+			return nil, kinesis.Handler(ctx, kinesisEvent, apiGateway, RedisClient)
 		case "websocket":
 			// Unmarshal the event into KinesisEvent
 			var websocketEvent events.APIGatewayWebsocketProxyRequest
