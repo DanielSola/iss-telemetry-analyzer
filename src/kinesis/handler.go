@@ -95,7 +95,6 @@ func Handler(ctx context.Context, kinesisEvent events.KinesisEvent, apiGateway *
 
 		bucket.AnomalyScore = anomalyScore
 
-		fmt.Println("Store anomaly score", anomalyScore)
 		dynamo.StoreAnomalyScore(dynamoDBClient, anomalyScore)
 
 		// Marshal response

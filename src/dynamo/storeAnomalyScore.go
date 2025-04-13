@@ -22,6 +22,7 @@ func StoreAnomalyScore(dynamoDBClient *dynamodb.DynamoDB, newScore float64) erro
 	}
 
 	var existingScores []float64
+
 	if result.Item != nil {
 		// Unmarshal existing data if the item exists
 		if err := dynamodbattribute.UnmarshalMap(result.Item, &existingScores); err != nil {
@@ -30,7 +31,7 @@ func StoreAnomalyScore(dynamoDBClient *dynamodb.DynamoDB, newScore float64) erro
 		}
 	} else {
 		// Initialize an empty array if the table is empty
-		existingScores = []float64{}
+		existingScores = []float64{newScore}
 	}
 
 	// Append the new scores to the existing array
