@@ -17,6 +17,9 @@ func StoreAnomalyScore(dynamoDBClient *dynamodb.DynamoDB, newScore float64) erro
 		},
 	})
 
+	fmt.Println("Get PREVIOUS", result.Item)
+	fmt.Println("Error fetch", err)
+
 	if err != nil {
 		return fmt.Errorf("failed to fetch existing scores: %w", err)
 	}
