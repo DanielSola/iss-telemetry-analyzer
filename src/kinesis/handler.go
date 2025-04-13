@@ -17,6 +17,11 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 )
 
+type DynamoData struct {
+	BucketKey string          `dynamodbav:"BucketKey"` // Correct tag for DynamoDB
+	Data      []TelemetryData `dynamodbav:"Data"`      // Correct tag for DynamoDB
+}
+
 type TelemetryData struct {
 	Name      string `json:"name"`      // e.g., "FLOWRATE", "PRESSURE", "TEMPERATURE"
 	Value     string `json:"value"`     // String value to parse
@@ -134,29 +139,29 @@ func bufferData(data TelemetryData) error {
 		return fmt.Errorf("failed to retrieve bucket: %v", err)
 	}
 
-	var existingData []TelemetryData
+	var existingBucket DynamoData
 
 	if result.Item != nil {
 		fmt.Println("result.Item", result.Item)
 		// Unmarshal existing data if the bucket exists
-		if err := dynamodbattribute.UnmarshalMap(result.Item, &existingData); err != nil {
+		if err := dynamodbattribute.UnmarshalMap(result.Item, &existingBucket); err != nil {
 			fmt.Printf("Failed to unmarshal existing bucket data: %v\n", err)
 			return fmt.Errorf("failed to unmarshal existing bucket data: %v", err)
 		}
 	}
 
-	// Append new data to the existing slice
-	existingData = append(existingData, data)
+	fmt.Println("Existing bucket: ", existingBucket)
 
+	// Append new data to the existing slice
+	existingBucket.Data = append(existingBucket.Data, data)
 	// Marshal updated data to DynamoDB format
-	item, err := dynamodbattribute.MarshalMap(map[string]interface{}{
-		"BucketKey": bucketKey,
-		"Data":      existingData,
-	})
+	item, err := dynamodbattribute.MarshalMap(existingBucket)
 
 	if err != nil {
 		return fmt.Errorf("failed to marshal data: %v", err)
 	}
+
+	fmt.Println("Item to save: ", item)
 
 	// Save updated bucket to DynamoDB
 	_, err = dynamoDBClient.PutItem(&dynamodb.PutItemInput{
