@@ -2,6 +2,7 @@ package dynamo
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
@@ -15,8 +16,6 @@ func average(xs []float64) float64 {
 	}
 	return total / float64(len(xs))
 }
-
-import "math"
 
 func standardDeviation(xs []float64) float64 {
 	if len(xs) == 0 {
@@ -43,7 +42,6 @@ func StoreAnomalyScore(dynamoDBClient *dynamodb.DynamoDB, newScore float64) erro
 		},
 	})
 
-	fmt.Println("Get PREVIOUS", result.Item)
 	fmt.Println("Error fetch", err)
 
 	if err != nil {
@@ -73,9 +71,8 @@ func StoreAnomalyScore(dynamoDBClient *dynamodb.DynamoDB, newScore float64) erro
 	avgAnomalyScore := average(existingScores)
 	stdAnomalyScore := standardDeviation((existingScores))
 
-
 	// Append the new score to the front of the existing array
-	existingScores = append(newScore, existingScores...)
+	existingScores = append([]float64{newScore}, existingScores...)
 
 	// Limit the array to the most recent 24 values. 24 x 5 = 120 seconds of memory = 2 mins
 	if len(existingScores) > 25 {
