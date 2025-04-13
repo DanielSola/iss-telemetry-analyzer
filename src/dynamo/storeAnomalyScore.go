@@ -27,10 +27,16 @@ func StoreAnomalyScore(dynamoDBClient *dynamodb.DynamoDB, newScore float64) erro
 	var existingScores []float64
 
 	if result.Item != nil && len(result.Item) > 0 {
-		// Unmarshal existing data if the item exists
-		if err := dynamodbattribute.UnmarshalMap(result.Item, &existingScores); err != nil {
-			fmt.Printf("Failed to unmarshal existing scores: %v\n", err)
-			return fmt.Errorf("failed to unmarshal existing scores: %w", err)
+		// Extract the "scores" attribute from the item
+		if scoresAttr, ok := result.Item["scores"]; ok {
+			// Unmarshal the "scores" attribute into a []float64
+			if err := dynamodbattribute.Unmarshal(scoresAttr, &existingScores); err != nil {
+				fmt.Printf("Failed to unmarshal existing scores: %v\n", err)
+				return fmt.Errorf("failed to unmarshal existing scores: %w", err)
+			}
+		} else {
+			// Initialize an empty array if the "scores" attribute does not exist
+			existingScores = []float64{}
 		}
 	} else {
 		// Initialize an empty array if the table is empty or key does not exist
