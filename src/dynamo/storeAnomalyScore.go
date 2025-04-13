@@ -17,6 +17,8 @@ func StoreAnomalyScore(dynamoDBClient *dynamodb.DynamoDB, newScore float64) erro
 		},
 	})
 
+	fmt.Println("PREVIOUS ITEM", result.Item)
+
 	if err != nil {
 		return fmt.Errorf("failed to fetch existing scores: %w", err)
 	}
@@ -34,8 +36,12 @@ func StoreAnomalyScore(dynamoDBClient *dynamodb.DynamoDB, newScore float64) erro
 		existingScores = []float64{newScore}
 	}
 
+	fmt.Println("existingScores", existingScores)
+
 	// Append the new scores to the existing array
 	existingScores = append(existingScores, newScore)
+
+	fmt.Println("existingScoresNew", existingScores)
 
 	// Marshal the updated scores array
 	item, err := dynamodbattribute.MarshalMap(map[string]interface{}{
@@ -43,15 +49,19 @@ func StoreAnomalyScore(dynamoDBClient *dynamodb.DynamoDB, newScore float64) erro
 		"scores": existingScores,
 	})
 
+	fmt.Println("item", item)
+
 	if err != nil {
 		return fmt.Errorf("failed to marshal updated scores: %w", err)
 	}
 
 	// Update the item in the DynamoDB table
-	_, err = dynamoDBClient.PutItem(&dynamodb.PutItemInput{
+	putItemRes, err := dynamoDBClient.PutItem(&dynamodb.PutItemInput{
 		TableName: aws.String("AnomalyScores"),
 		Item:      item,
 	})
+
+	fmt.Println("PUT ITEM OUTPUT ", putItemRes)
 
 	if err != nil {
 		return fmt.Errorf("failed to store updated scores in table: %w", err)
