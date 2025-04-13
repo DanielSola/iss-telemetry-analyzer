@@ -8,6 +8,32 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 )
 
+func average(xs []float64) float64 {
+	total := 0.0
+	for _, v := range xs {
+		total += v
+	}
+	return total / float64(len(xs))
+}
+
+import "math"
+
+func standardDeviation(xs []float64) float64 {
+	if len(xs) == 0 {
+		return 0.0
+	}
+
+	mean := average(xs)
+	var varianceSum float64
+
+	for _, v := range xs {
+		varianceSum += math.Pow(v-mean, 2)
+	}
+
+	variance := varianceSum / float64(len(xs))
+	return math.Sqrt(variance)
+}
+
 func StoreAnomalyScore(dynamoDBClient *dynamodb.DynamoDB, newScore float64) error {
 	// Retrieve scores array
 	result, err := dynamoDBClient.GetItem(&dynamodb.GetItemInput{
@@ -43,8 +69,21 @@ func StoreAnomalyScore(dynamoDBClient *dynamodb.DynamoDB, newScore float64) erro
 		existingScores = []float64{}
 	}
 
-	// Append the new score to the existing array
-	existingScores = append(existingScores, newScore)
+	// Calculate the average and std of existingScores
+	avgAnomalyScore := average(existingScores)
+	stdAnomalyScore := standardDeviation((existingScores))
+
+
+	// Append the new score to the front of the existing array
+	existingScores = append(newScore, existingScores...)
+
+	// Limit the array to the most recent 24 values. 24 x 5 = 120 seconds of memory = 2 mins
+	if len(existingScores) > 25 {
+		existingScores = existingScores[:25]
+	}
+
+	fmt.Println("AVG VALUE: ", avgAnomalyScore)
+	fmt.Println("Std AnonalyScore: ", stdAnomalyScore)
 
 	// Marshal the updated scores array
 	item, err := dynamodbattribute.MarshalMap(map[string]interface{}{
