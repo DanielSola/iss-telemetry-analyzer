@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"iss-telemetry-analyzer/src/dynamo"
 	"iss-telemetry-analyzer/src/sagemaker"
 	"iss-telemetry-analyzer/src/websocket"
 	"strconv"
@@ -65,6 +66,7 @@ func Handler(ctx context.Context, kinesisEvent events.KinesisEvent, apiGateway *
 		fmt.Printf("Received Kinesis record: %s\n", dataBytes)
 
 		var telemetryData TelemetryData
+
 		if err := json.Unmarshal(dataBytes, &telemetryData); err != nil {
 			fmt.Printf("Cannot read Kinesis telemetry data: %v\n", err)
 			continue
@@ -89,9 +91,11 @@ func Handler(ctx context.Context, kinesisEvent events.KinesisEvent, apiGateway *
 			bucket.FlowChangeRate, bucket.PressChangeRate, bucket.TempChangeRate,
 		}
 
-		var AnomalyScore = sagemaker.Predict(features)
+		var anomalyScore = sagemaker.Predict(features)
 
-		bucket.AnomalyScore = AnomalyScore
+		bucket.AnomalyScore = anomalyScore
+
+		dynamo.StoreAnomalyScore(dynamoDBClient, anomalyScore)
 
 		// Marshal response
 		responseBytes, err := json.Marshal(bucket)
@@ -144,15 +148,12 @@ func bufferData(data TelemetryData) error {
 	var existingBucket DynamoData
 
 	if result.Item != nil {
-		fmt.Println("result.Item", result.Item)
 		// Unmarshal existing data if the bucket exists
 		if err := dynamodbattribute.UnmarshalMap(result.Item, &existingBucket); err != nil {
 			fmt.Printf("Failed to unmarshal existing bucket data: %v\n", err)
 			return fmt.Errorf("failed to unmarshal existing bucket data: %v", err)
 		}
 	}
-
-	fmt.Println("Existing bucket: ", existingBucket)
 
 	// Append new data to the existing slice
 	existingBucket.Data = append(existingBucket.Data, data)
@@ -168,8 +169,6 @@ func bufferData(data TelemetryData) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal data: %v", err)
 	}
-
-	fmt.Println("Item to save: ", item)
 
 	// Save updated bucket to DynamoDB
 	_, err = dynamoDBClient.PutItem(&dynamodb.PutItemInput{
