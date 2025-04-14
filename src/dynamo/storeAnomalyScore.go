@@ -90,9 +90,6 @@ func StoreAnomalyScore(dynamoDBClient *dynamodb.DynamoDB, newScore float64) Stor
 		existingScores = existingScores[:25]
 	}
 
-	fmt.Println("AVG VALUE: ", avgAnomalyScore)
-	fmt.Println("Std AnonalyScore: ", stdAnomalyScore)
-
 	// Marshal the updated scores array
 	item, err := dynamodbattribute.MarshalMap(map[string]interface{}{
 		"key":    "scores",

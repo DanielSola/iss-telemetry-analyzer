@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"iss-telemetry-analyzer/src/dynamo"
 	"iss-telemetry-analyzer/src/sagemaker"
+	"iss-telemetry-analyzer/src/utils"
 	"iss-telemetry-analyzer/src/websocket"
 	"strconv"
 	"time"
@@ -97,10 +98,12 @@ func Handler(ctx context.Context, kinesisEvent events.KinesisEvent, apiGateway *
 
 		result := dynamo.StoreAnomalyScore(dynamoDBClient, anomalyScore)
 
+		anomalyLevel := utils.ComputeAnomalyLevel(result.Score, result.StandardDeviation, result.Average)
+
 		if result.Error != nil {
 			fmt.Printf("Error storing anomaly score: %v\n", result.Error)
 		} else {
-			fmt.Printf("Score: %f, Average: %f, Standard Deviation: %f\n", result.Score, result.Average, result.StandardDeviation)
+			fmt.Printf("Score: %f, Average: %f, Standard Deviation: %f, Anomaly Level: %s\n", result.Score, result.Average, result.StandardDeviation, anomalyLevel)
 		}
 
 		// Marshal response
