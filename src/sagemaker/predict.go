@@ -68,6 +68,7 @@ func Predict(values []float64) float64 {
 	score := response.Scores[0].Score
 	fmt.Println("-----------------")
 	fmt.Println("Values: ", values)
+	fmt.Println("Sagemaker Response: ", response)
 	fmt.Println("Anomaly Score: ", score)
 
 	return score
