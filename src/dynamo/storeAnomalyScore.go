@@ -33,7 +33,14 @@ func standardDeviation(xs []float64) float64 {
 	return math.Sqrt(variance)
 }
 
-func StoreAnomalyScore(dynamoDBClient *dynamodb.DynamoDB, newScore float64) error {
+type StoreAnomalyScoreResult struct {
+	Score             float64
+	Average           float64
+	StandardDeviation float64
+	Error             error
+}
+
+func StoreAnomalyScore(dynamoDBClient *dynamodb.DynamoDB, newScore float64) StoreAnomalyScoreResult {
 	// Retrieve scores array
 	result, err := dynamoDBClient.GetItem(&dynamodb.GetItemInput{
 		TableName: aws.String("AnomalyScores"),
@@ -45,7 +52,9 @@ func StoreAnomalyScore(dynamoDBClient *dynamodb.DynamoDB, newScore float64) erro
 	fmt.Println("Error fetch", err)
 
 	if err != nil {
-		return fmt.Errorf("failed to fetch existing scores: %w", err)
+		return StoreAnomalyScoreResult{
+			Error: fmt.Errorf("failed to fetch existing scores: %w", err),
+		}
 	}
 
 	var existingScores []float64
@@ -56,7 +65,9 @@ func StoreAnomalyScore(dynamoDBClient *dynamodb.DynamoDB, newScore float64) erro
 			// Unmarshal the "scores" attribute into a []float64
 			if err := dynamodbattribute.Unmarshal(scoresAttr, &existingScores); err != nil {
 				fmt.Printf("Failed to unmarshal existing scores: %v\n", err)
-				return fmt.Errorf("failed to unmarshal existing scores: %w", err)
+				return StoreAnomalyScoreResult{
+					Error: fmt.Errorf("failed to unmarshal existing scores: %w", err),
+				}
 			}
 		} else {
 			// Initialize an empty array if the "scores" attribute does not exist
@@ -89,7 +100,9 @@ func StoreAnomalyScore(dynamoDBClient *dynamodb.DynamoDB, newScore float64) erro
 	})
 
 	if err != nil {
-		return fmt.Errorf("failed to marshal updated scores: %w", err)
+		return StoreAnomalyScoreResult{
+			Error: fmt.Errorf("failed to marshal updated scores: %w", err),
+		}
 	}
 
 	// Update the item in the DynamoDB table
@@ -99,8 +112,15 @@ func StoreAnomalyScore(dynamoDBClient *dynamodb.DynamoDB, newScore float64) erro
 	})
 
 	if err != nil {
-		return fmt.Errorf("failed to store updated scores in table: %w", err)
+		return StoreAnomalyScoreResult{
+			Error: fmt.Errorf("failed to store updated scores in table: %w", err),
+		}
 	}
 
-	return nil
+	return StoreAnomalyScoreResult{
+		Average:           avgAnomalyScore,
+		StandardDeviation: stdAnomalyScore,
+		Error:             nil,
+		Score:             newScore,
+	}
 }

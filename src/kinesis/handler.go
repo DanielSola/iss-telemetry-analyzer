@@ -95,7 +95,13 @@ func Handler(ctx context.Context, kinesisEvent events.KinesisEvent, apiGateway *
 
 		bucket.AnomalyScore = anomalyScore
 
-		dynamo.StoreAnomalyScore(dynamoDBClient, anomalyScore)
+		result := dynamo.StoreAnomalyScore(dynamoDBClient, anomalyScore)
+
+		if result.Error != nil {
+			fmt.Printf("Error storing anomaly score: %v\n", result.Error)
+		} else {
+			fmt.Printf("Score: %f, Average: %f, Standard Deviation: %f\n", result.Score, result.Average, result.StandardDeviation)
+		}
 
 		// Marshal response
 		responseBytes, err := json.Marshal(bucket)
