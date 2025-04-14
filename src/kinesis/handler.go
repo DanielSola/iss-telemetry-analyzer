@@ -25,9 +25,9 @@ type DynamoData struct {
 }
 
 type TelemetryData struct {
-	Name      string `json:"name"`      // e.g., "FLOWRATE", "PRESSURE", "TEMPERATURE"
-	Value     string `json:"value"`     // String value to parse
-	Timestamp string `json:"timestamp"` // ISO timestamp
+	Name      string `json:"name"`
+	Value     string `json:"value"`
+	Timestamp string `json:"timestamp"`
 }
 
 type ProcessedData struct {
@@ -39,6 +39,7 @@ type ProcessedData struct {
 	PressChangeRate float64 `json:"press_change_rate"`
 	TempChangeRate  float64 `json:"temp_change_rate"`
 	AnomalyScore    float64 `json:"anomaly_score"`
+	AnomalyLevel    string  `json:"anomaly_level"`
 }
 
 var (
@@ -99,6 +100,8 @@ func Handler(ctx context.Context, kinesisEvent events.KinesisEvent, apiGateway *
 		result := dynamo.StoreAnomalyScore(dynamoDBClient, anomalyScore)
 
 		anomalyLevel := utils.ComputeAnomalyLevel(result.Score, result.StandardDeviation, result.Average)
+
+		bucket.AnomalyLevel = string(anomalyLevel)
 
 		if result.Error != nil {
 			fmt.Printf("Error storing anomaly score: %v\n", result.Error)
