@@ -25,5 +25,13 @@ func DetectEventType(event json.RawMessage) (string, error) {
 		}
 	}
 
+	// Try parsing as an API Gateway HTTP request (v2)
+	var httpEvent events.APIGatewayV2HTTPRequest
+	if err := json.Unmarshal(event, &httpEvent); err == nil {
+		if httpEvent.RequestContext.HTTP.Method != "" {
+			return "http", nil
+		}
+	}
+
 	return "", fmt.Errorf("unknown event type")
 }

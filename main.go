@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"iss-telemetry-analyzer/src/api"
 	"iss-telemetry-analyzer/src/kinesis"
 	"iss-telemetry-analyzer/src/websocket"
 	"os"
@@ -34,6 +35,8 @@ var (
 func main() {
 	lambda.Start(func(ctx context.Context, event json.RawMessage) (interface{}, error) {
 		eventType, err := kinesis.DetectEventType(event)
+
+		fmt.Println("EVENT TIPE ", eventType)
 
 		if err != nil {
 			fmt.Println("Error detecting event type:", err)
@@ -66,6 +69,15 @@ func main() {
 			}
 
 			return websocket.Manage(ctx, websocketEvent)
+		case "http":
+			var httpEvent events.APIGatewayV2HTTPRequest
+			if err := json.Unmarshal(event, &httpEvent); err != nil {
+				fmt.Printf("Error unmarshalling HTTP event: %v\n", err)
+				return nil, err
+			}
+
+			return api.HandleHTTP(ctx, httpEvent)
+
 		default:
 			// Make sure you handle unknown events properly.
 			return nil, fmt.Errorf("unknown event type: %s", eventType)
