@@ -62,6 +62,8 @@ func Handler(ctx context.Context, kinesisEvent events.KinesisEvent) error {
 			fmt.Printf("Score: %f, Average: %f, Standard Deviation: %f, Anomaly Level: %s\n", result.Score, result.Average, result.StandardDeviation, anomalyLevel)
 		}
 
+		dynamo.StoreTelemetryData(anomalyScore, bucket.PRESSURE, bucket.TEMPERATURE, bucket.FLOWRATE, anomalyLevel)
+
 		// Marshal response
 		responseBytes, err := json.Marshal(bucket)
 
