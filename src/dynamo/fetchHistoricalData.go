@@ -26,12 +26,17 @@ func FetchHistoricalData() ([]TelemetryData, error) {
 
 	client := GetDynamoDBClient()
 
+	partitionKey := "device"
+
 	input := &dynamodb.QueryInput{
 		TableName:              aws.String("TelemetryData"),
-		KeyConditionExpression: aws.String("PK = 'Device' AND SK >= :oneHourAgo"),
+		KeyConditionExpression: aws.String("PK = :partitionKey AND SK >= :oneHourAgo"),
 		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
+			":partitionKey": {
+				S: aws.String(partitionKey), // Partition key value
+			},
 			":oneHourAgo": {
-				N: aws.String(fmt.Sprintf("%d", oneHourAgo)), // Correct conversion
+				N: aws.String(fmt.Sprintf("%d", oneHourAgo)), // Sort key condition
 			},
 		},
 	}
