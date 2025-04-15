@@ -28,7 +28,7 @@ func FetchHistoricalData() ([]TelemetryData, error) {
 
 	input := &dynamodb.QueryInput{
 		TableName:              aws.String("TelemetryData"),
-		KeyConditionExpression: aws.String("SK >= :oneHourAgo"),
+		KeyConditionExpression: aws.String("PK = 'Device' AND SK >= :oneHourAgo"),
 		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
 			":oneHourAgo": {
 				N: aws.String(fmt.Sprintf("%d", oneHourAgo)), // Correct conversion
