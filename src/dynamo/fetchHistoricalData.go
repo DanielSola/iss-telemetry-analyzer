@@ -1,7 +1,6 @@
 package dynamo
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -22,7 +21,7 @@ type TelemetryData struct {
 
 func FetchHistoricalData() ([]TelemetryData, error) {
 	now := time.Now()
-	oneHourAgo := now.Add(-1 * time.Hour).Unix()
+	oneHourAgo := now.Add(-1 * time.Hour).UTC().Format(time.RFC3339) // Convert to ISO 8601 format
 
 	client := GetDynamoDBClient()
 
@@ -36,7 +35,7 @@ func FetchHistoricalData() ([]TelemetryData, error) {
 				S: aws.String(partitionKey), // Partition key value
 			},
 			":oneHourAgo": {
-				N: aws.String(fmt.Sprintf("%d", oneHourAgo)), // Sort key condition
+				S: aws.String(oneHourAgo), // Sort key condition as ISO 8601 string
 			},
 		},
 	}
