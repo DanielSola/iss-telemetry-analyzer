@@ -1,6 +1,7 @@
 package dynamo
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -23,6 +24,8 @@ func FetchHistoricalData() ([]TelemetryData, error) {
 	now := time.Now()
 	oneHourAgo := now.Add(-1 * time.Hour).UTC().Format(time.RFC3339) // Convert to ISO 8601 format
 
+	fmt.Println("TIMESTAMP", oneHourAgo)
+
 	client := GetDynamoDBClient()
 
 	partitionKey := "device"
@@ -41,12 +44,15 @@ func FetchHistoricalData() ([]TelemetryData, error) {
 	}
 
 	output, err := client.Query(input)
+
 	if err != nil {
 		return nil, err
 	}
 
 	var results []TelemetryData
+
 	err = dynamodbattribute.UnmarshalListOfMaps(output.Items, &results)
+
 	if err != nil {
 		return nil, err
 	}
