@@ -154,6 +154,7 @@ func bufferData(data TelemetryData) error {
 	})
 
 	if err != nil {
+		fmt.Println("ERROR GET ITEM", err)
 		return fmt.Errorf("failed to retrieve bucket: %v", err)
 	}
 
@@ -178,6 +179,8 @@ func bufferData(data TelemetryData) error {
 	item, err := dynamodbattribute.MarshalMap(existingBucket)
 
 	if err != nil {
+		fmt.Println("ERROR MARSHAL DATA", err)
+
 		return fmt.Errorf("failed to marshal data: %v", err)
 	}
 
@@ -188,6 +191,8 @@ func bufferData(data TelemetryData) error {
 	})
 
 	if err != nil {
+		fmt.Println("ERROR PUT ITEM", err)
+
 		return fmt.Errorf("failed to save data to DynamoDB: %v", err)
 	}
 
