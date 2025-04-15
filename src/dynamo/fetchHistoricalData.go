@@ -1,6 +1,7 @@
 package dynamo
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -30,7 +31,7 @@ func FetchHistoricalData() ([]TelemetryData, error) {
 		KeyConditionExpression: aws.String("SK >= :oneHourAgo"),
 		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
 			":oneHourAgo": {
-				N: aws.String(string(rune(oneHourAgo))),
+				N: aws.String(fmt.Sprintf("%d", oneHourAgo)), // Correct conversion
 			},
 		},
 	}
