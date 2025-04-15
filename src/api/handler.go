@@ -17,7 +17,7 @@ func fetchHistoricalData(timeRange string) ([]map[string]interface{}, error) {
 }
 
 func HandleHTTP(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
-	fmt.Println("REQUEST PATH:", req.RequestContext.HTTP.Path)
+	fmt.Println("REQUEST PATH:", req.RequestContext)
 
 	switch req.RequestContext.HTTP.Path {
 	case "/history":
