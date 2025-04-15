@@ -1,22 +1,22 @@
 package websocket
 
 import (
+	"iss-telemetry-analyzer/src/dynamo"
+
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 )
 
-var (
-	sess      = session.Must(session.NewSession())
-	dynamoDB  = dynamodb.New(sess)
-	tableName = "WebSocketConnections"
-)
+var tableName = "WebSocketConnections"
 
 // Fetch all active WebSocket connections from DynamoDB
 func GetActiveConnections() ([]WebSocketConnection, error) {
+	client := dynamo.GetDynamoDBClient()
+
 	input := &dynamodb.ScanInput{TableName: aws.String(tableName)}
-	result, err := dynamoDB.Scan(input)
+	result, err := client.Scan(input)
+
 	if err != nil {
 		return nil, err
 	}

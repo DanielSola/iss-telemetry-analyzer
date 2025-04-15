@@ -10,9 +10,6 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/apigatewaymanagementapi"
 )
 
 type Record struct {
@@ -29,47 +26,14 @@ type Event struct {
 	Records []Record
 }
 
-func detectEventType(event json.RawMessage) (string, error) {
-	// Try parsing as a Kinesis event
-	var kinesisEvent events.KinesisEvent
-	if err := json.Unmarshal(event, &kinesisEvent); err == nil {
-		if len(kinesisEvent.Records) > 0 && kinesisEvent.Records[0].EventSource == "aws:kinesis" {
-			return "kinesis", nil
-		}
-	}
-
-	// Try parsing as an API Gateway WebSocket event
-	var websocketEvent events.APIGatewayWebsocketProxyRequest
-	if err := json.Unmarshal(event, &websocketEvent); err == nil {
-		if websocketEvent.RequestContext.EventType != "" {
-			return "websocket", nil
-		}
-	}
-
-	return "", fmt.Errorf("unknown event type")
-}
-
 var (
-	sess                 = session.Must(session.NewSession())
-	apiURL               = os.Getenv("API_GATEWAY_URL")         // Get API Gateway URL from environment variable
 	sagemakerEndpointURL = os.Getenv("SAGEMAKER_ENDPOINT_NAME") // TODO: Leer el endpoint de aqui y hacer predicciones
-	apiGateway           *apigatewaymanagementapi.ApiGatewayManagementApi
 )
-
-// Initialize API Gateway Management API client dynamically
-func init() {
-	if apiURL == "" {
-		fmt.Println("Error: API_GATEWAY_URL environment variable not set")
-		os.Exit(1)
-	}
-	apiGateway = apigatewaymanagementapi.New(sess, aws.NewConfig().WithEndpoint(apiURL))
-
-}
 
 // Determine which handler to start based on event type
 func main() {
 	lambda.Start(func(ctx context.Context, event json.RawMessage) (interface{}, error) {
-		eventType, err := detectEventType(event)
+		eventType, err := kinesis.DetectEventType(event)
 
 		if err != nil {
 			fmt.Println("Error detecting event type:", err)
@@ -89,7 +53,8 @@ func main() {
 			}
 
 			// You likely want to return the result or a message instead of nil.
-			return nil, kinesis.Handler(ctx, kinesisEvent, apiGateway)
+			return nil, kinesis.Handler(ctx, kinesisEvent)
+
 		case "websocket":
 			// Unmarshal the event into KinesisEvent
 			var websocketEvent events.APIGatewayWebsocketProxyRequest
@@ -100,7 +65,7 @@ func main() {
 				return nil, err
 			}
 
-			return websocket.Manage(ctx, websocketEvent, apiGateway)
+			return websocket.Manage(ctx, websocketEvent)
 		default:
 			// Make sure you handle unknown events properly.
 			return nil, fmt.Errorf("unknown event type: %s", eventType)

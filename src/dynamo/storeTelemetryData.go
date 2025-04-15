@@ -10,7 +10,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 )
 
-// StoreTelemetryData inserts telemetry data into the DynamoDB table
 func StoreTelemetryData(score, pressure, temperature, flowrate float64, level utils.AnomalyLevel) error {
 	client := GetDynamoDBClient()
 

@@ -11,17 +11,9 @@ import (
 	"iss-telemetry-analyzer/src/websocket"
 
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/apigatewaymanagementapi"
 )
 
-func Handler(ctx context.Context, kinesisEvent events.KinesisEvent, apiGateway *apigatewaymanagementapi.ApiGatewayManagementApi) error {
-	// Retrieve WebSocket connections
-	connections, err := websocket.GetActiveConnections()
-	if err != nil {
-		fmt.Printf("Failed to retrieve connections: %v\n", err)
-		return err
-	}
+func Handler(ctx context.Context, kinesisEvent events.KinesisEvent) error {
 
 	// Process each Kinesis record
 	for _, record := range kinesisEvent.Records {
@@ -78,17 +70,8 @@ func Handler(ctx context.Context, kinesisEvent events.KinesisEvent, apiGateway *
 			continue
 		}
 
-		// Send to WebSocket clients
-		for _, conn := range connections {
-			_, err := apiGateway.PostToConnection(&apigatewaymanagementapi.PostToConnectionInput{
-				ConnectionId: aws.String(conn.ConnectionID),
-				Data:         responseBytes,
-			})
+		websocket.PostMessage(responseBytes)
 
-			if err != nil {
-				fmt.Printf("Error sending to %s: %v\n", conn.ConnectionID, err)
-			}
-		}
 	}
 
 	return nil

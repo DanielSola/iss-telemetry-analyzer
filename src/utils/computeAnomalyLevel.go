@@ -27,11 +27,11 @@ func ComputeAnomalyLevel(anomalyScore, stdScore, avgScore float64) AnomalyLevel 
 
 	scoreDeviation := math.Abs(anomalyScore - avgScore)
 
-	if scoreDeviation <= stdScore {
+	if scoreDeviation <= 2*stdScore {
 		return NO_ANOMALY
 	}
 
-	if scoreDeviation > stdScore && scoreDeviation <= 3*stdScore {
+	if scoreDeviation > 2*stdScore && scoreDeviation <= 3*stdScore {
 		return MEDIUM
 	}
 

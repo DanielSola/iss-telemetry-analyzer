@@ -3,10 +3,10 @@ package websocket
 import (
 	"context"
 	"fmt"
+	"iss-telemetry-analyzer/src/dynamo"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/apigatewaymanagementapi"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 )
@@ -17,7 +17,7 @@ type WebSocketConnection struct {
 }
 
 // WebSocket connection management handlers
-func Manage(ctx context.Context, req events.APIGatewayWebsocketProxyRequest, apiGateway *apigatewaymanagementapi.ApiGatewayManagementApi) (events.APIGatewayProxyResponse, error) {
+func Manage(ctx context.Context, req events.APIGatewayWebsocketProxyRequest) (events.APIGatewayProxyResponse, error) {
 	switch req.RequestContext.RouteKey {
 	case "$connect":
 		fmt.Println("New connection:", req.RequestContext.ConnectionID)
@@ -42,8 +42,10 @@ func Manage(ctx context.Context, req events.APIGatewayWebsocketProxyRequest, api
 
 // Store a new WebSocket connection in DynamoDB
 func storeConnection(connectionID string) error {
+	client := dynamo.GetDynamoDBClient()
+
 	item, _ := dynamodbattribute.MarshalMap(WebSocketConnection{ConnectionID: connectionID})
-	_, err := dynamoDB.PutItem(&dynamodb.PutItemInput{
+	_, err := client.PutItem(&dynamodb.PutItemInput{
 		TableName: aws.String(tableName),
 		Item:      item,
 	})
@@ -52,9 +54,12 @@ func storeConnection(connectionID string) error {
 
 // Remove a WebSocket connection from DynamoDB
 func deleteConnection(connectionID string) error {
-	_, err := dynamoDB.DeleteItem(&dynamodb.DeleteItemInput{
+	client := dynamo.GetDynamoDBClient()
+
+	_, err := client.DeleteItem(&dynamodb.DeleteItemInput{
 		TableName: aws.String(tableName),
 		Key:       map[string]*dynamodb.AttributeValue{"connectionId": {S: aws.String(connectionID)}},
 	})
+
 	return err
 }
