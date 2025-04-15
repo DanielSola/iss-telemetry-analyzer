@@ -11,7 +11,9 @@ import (
 )
 
 // StoreTelemetryData inserts telemetry data into the DynamoDB table
-func StoreTelemetryData(dynamoDBClient *dynamodb.DynamoDB, score, pressure, temperature, flowrate float64, level utils.AnomalyLevel) error {
+func StoreTelemetryData(score, pressure, temperature, flowrate float64, level utils.AnomalyLevel) error {
+	client := GetDynamoDBClient()
+
 	now := time.Now()
 
 	partitionKey := "device" // Static key since you're storing one day of data
@@ -48,7 +50,8 @@ func StoreTelemetryData(dynamoDBClient *dynamodb.DynamoDB, score, pressure, temp
 		},
 	}
 
-	_, err := dynamoDBClient.PutItem(input)
+	_, err := client.PutItem(input)
+
 	if err != nil {
 		return fmt.Errorf("failed to put item: %w", err)
 	}

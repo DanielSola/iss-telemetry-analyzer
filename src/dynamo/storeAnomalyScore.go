@@ -2,47 +2,18 @@ package dynamo
 
 import (
 	"fmt"
-	"math"
+	"iss-telemetry-analyzer/src/types"
+	"iss-telemetry-analyzer/src/utils"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 )
 
-func average(xs []float64) float64 {
-	total := 0.0
-	for _, v := range xs {
-		total += v
-	}
-	return total / float64(len(xs))
-}
+func StoreAnomalyScore(newScore float64) types.StoreAnomalyScoreResult {
+	client := GetDynamoDBClient()
 
-func standardDeviation(xs []float64) float64 {
-	if len(xs) == 0 {
-		return 0.0
-	}
-
-	mean := average(xs)
-	var varianceSum float64
-
-	for _, v := range xs {
-		varianceSum += math.Pow(v-mean, 2)
-	}
-
-	variance := varianceSum / float64(len(xs))
-	return math.Sqrt(variance)
-}
-
-type StoreAnomalyScoreResult struct {
-	Score             float64
-	Average           float64
-	StandardDeviation float64
-	Error             error
-}
-
-func StoreAnomalyScore(dynamoDBClient *dynamodb.DynamoDB, newScore float64) StoreAnomalyScoreResult {
-	// Retrieve scores array
-	result, err := dynamoDBClient.GetItem(&dynamodb.GetItemInput{
+	result, err := client.GetItem(&dynamodb.GetItemInput{
 		TableName: aws.String("AnomalyScores"),
 		Key: map[string]*dynamodb.AttributeValue{
 			"key": {S: aws.String("scores")},
@@ -52,7 +23,7 @@ func StoreAnomalyScore(dynamoDBClient *dynamodb.DynamoDB, newScore float64) Stor
 	fmt.Println("Error fetch", err)
 
 	if err != nil {
-		return StoreAnomalyScoreResult{
+		return types.StoreAnomalyScoreResult{
 			Error: fmt.Errorf("failed to fetch existing scores: %w", err),
 		}
 	}
@@ -65,7 +36,7 @@ func StoreAnomalyScore(dynamoDBClient *dynamodb.DynamoDB, newScore float64) Stor
 			// Unmarshal the "scores" attribute into a []float64
 			if err := dynamodbattribute.Unmarshal(scoresAttr, &existingScores); err != nil {
 				fmt.Printf("Failed to unmarshal existing scores: %v\n", err)
-				return StoreAnomalyScoreResult{
+				return types.StoreAnomalyScoreResult{
 					Error: fmt.Errorf("failed to unmarshal existing scores: %w", err),
 				}
 			}
@@ -79,8 +50,8 @@ func StoreAnomalyScore(dynamoDBClient *dynamodb.DynamoDB, newScore float64) Stor
 	}
 
 	// Calculate the average and std of existingScores
-	avgAnomalyScore := average(existingScores)
-	stdAnomalyScore := standardDeviation((existingScores))
+	avgAnomalyScore := utils.Average(existingScores)
+	stdAnomalyScore := utils.StandardDeviation((existingScores))
 
 	// Append the new score to the front of the existing array
 	existingScores = append([]float64{newScore}, existingScores...)
@@ -97,24 +68,24 @@ func StoreAnomalyScore(dynamoDBClient *dynamodb.DynamoDB, newScore float64) Stor
 	})
 
 	if err != nil {
-		return StoreAnomalyScoreResult{
+		return types.StoreAnomalyScoreResult{
 			Error: fmt.Errorf("failed to marshal updated scores: %w", err),
 		}
 	}
 
 	// Update the item in the DynamoDB table
-	_, err = dynamoDBClient.PutItem(&dynamodb.PutItemInput{
+	_, err = client.PutItem(&dynamodb.PutItemInput{
 		TableName: aws.String("AnomalyScores"),
 		Item:      item,
 	})
 
 	if err != nil {
-		return StoreAnomalyScoreResult{
+		return types.StoreAnomalyScoreResult{
 			Error: fmt.Errorf("failed to store updated scores in table: %w", err),
 		}
 	}
 
-	return StoreAnomalyScoreResult{
+	return types.StoreAnomalyScoreResult{
 		Average:           avgAnomalyScore,
 		StandardDeviation: stdAnomalyScore,
 		Error:             nil,
