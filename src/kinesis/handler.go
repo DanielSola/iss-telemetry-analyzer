@@ -9,52 +9,89 @@ import (
 	"iss-telemetry-analyzer/src/types"
 	"iss-telemetry-analyzer/src/utils"
 	"iss-telemetry-analyzer/src/websocket"
+	"strconv"
 
 	"github.com/aws/aws-lambda-go/events"
 )
 
+var currentTemperatureValue float64
+var currentTemperatureTimestamp string
+var previousTemperatureValue float64
+var previousTemperatureTimestamp string
+
+// Pressure
+var currentPressureValue float64
+var currentPressureTimestamp string
+var previousPressureValue float64
+var previousPressureTimestamp string
+
+// Flowrate
+var currentFlowRateValue float64
+var currentFlowRateTimestamp string
+var previousFlowrateValue float64
+var previousFlowrateTimestamp string
+
 func Handler(ctx context.Context, kinesisEvent events.KinesisEvent) error {
 
 	// Process each Kinesis record
-	for _, record := range kinesisEvent.Records {
-		dataBytes := record.Kinesis.Data
-		fmt.Printf("Received Kinesis record: %s\n", dataBytes)
+	record := kinesisEvent.Records[0]
+	dataBytes := record.Kinesis.Data
+	fmt.Printf("Received Kinesis record: %s\n", dataBytes)
 
-		var telemetryData types.TelemetryData
+	var telemetryData types.TelemetryData
 
-		if err := json.Unmarshal(dataBytes, &telemetryData); err != nil {
-			fmt.Printf("Cannot read Kinesis telemetry data: %v\n", err)
-			continue
-		}
-
-		fmt.Printf("Telemetry Data: %+v\n", telemetryData)
-
-		// Buffer into 5-second window
-		if err := dynamo.BufferData(telemetryData); err != nil {
-			fmt.Printf("Error buffering data: %v\n", err)
-			continue
-		}
+	if err := json.Unmarshal(dataBytes, &telemetryData); err != nil {
+		fmt.Printf("Cannot read Kinesis telemetry data: %v\n", err)
 	}
 
-	// Process completed 5-second buckets
-	processedBuckets := dynamo.ProcessCompletedBuckets()
+	if telemetryData.Name == "FLOWRATE" {
+		flowrate, err := strconv.ParseFloat(telemetryData.Value, 64)
 
-	for _, bucket := range processedBuckets {
-		// Get anomaly score from SageMaker RCF
+		if err != nil {
+			fmt.Printf("Error parsing %s value %s: %v\n", telemetryData.Name, telemetryData.Value, err)
+		}
+
+		currentFlowRateValue = flowrate
+		currentFlowRateTimestamp = telemetryData.Timestamp
+	}
+
+	if telemetryData.Name == "TEMPERATURE" {
+		temperature, err := strconv.ParseFloat(telemetryData.Value, 64)
+
+		if err != nil {
+			fmt.Printf("Error parsing %s value %s: %v\n", telemetryData.Name, telemetryData.Value, err)
+		}
+
+		currentTemperatureValue = temperature
+		currentTemperatureTimestamp = telemetryData.Timestamp
+	}
+
+	if telemetryData.Name == "PRESSURE" {
+		pressure, err := strconv.ParseFloat(telemetryData.Value, 64)
+
+		if err != nil {
+			fmt.Printf("Error parsing %s value %s: %v\n", telemetryData.Name, telemetryData.Value, err)
+		}
+
+		currentPressureValue = pressure
+		currentPressureTimestamp = telemetryData.Timestamp
+	}
+
+	if currentFlowRateValue != 0.0 && currentTemperatureValue != 0.0 && currentPressureValue != 0.0 {
+
+		flowChangeRate := utils.GetChangeRate(currentFlowRateValue, previousFlowrateValue, currentFlowRateTimestamp, previousFlowrateTimestamp)
+		temperatureChangeRate := utils.GetChangeRate(currentTemperatureValue, previousTemperatureValue, currentTemperatureTimestamp, previousTemperatureTimestamp)
+		pressureChangeRate := utils.GetChangeRate(currentPressureValue, previousPressureValue, currentPressureTimestamp, previousPressureTimestamp)
+
 		features := []float64{
-			bucket.FLOWRATE, bucket.PRESSURE, bucket.TEMPERATURE,
-			bucket.FlowChangeRate, bucket.PressChangeRate, bucket.TempChangeRate,
+			currentFlowRateValue, currentPressureValue, currentPressureValue,
+			flowChangeRate, pressureChangeRate, temperatureChangeRate,
 		}
 
 		var anomalyScore = sagemaker.Predict(features)
 
-		bucket.AnomalyScore = anomalyScore
-
 		result := dynamo.StoreAnomalyScore(anomalyScore)
-
 		anomalyLevel := utils.ComputeAnomalyLevel(result.Score, result.StandardDeviation, result.Average)
-
-		bucket.AnomalyLevel = string(anomalyLevel)
 
 		if result.Error != nil {
 			fmt.Printf("Error storing anomaly score: %v\n", result.Error)
@@ -62,14 +99,34 @@ func Handler(ctx context.Context, kinesisEvent events.KinesisEvent) error {
 			fmt.Printf("Score: %f, Average: %f, Standard Deviation: %f, Anomaly Level: %s\n", result.Score, result.Average, result.StandardDeviation, anomalyLevel)
 		}
 
-		dynamo.StoreTelemetryData(anomalyScore, bucket.PRESSURE, bucket.TEMPERATURE, bucket.FLOWRATE, anomalyLevel)
+		dynamo.StoreTelemetryData(anomalyScore, currentPressureValue, currentTemperatureValue, currentFlowRateValue, (anomalyLevel))
 
-		// Marshal response
-		responseBytes, err := json.Marshal(bucket)
+		response := struct {
+			Timestamp       string  `json:"timestamp"`
+			FlowRate        float64 `json:"flowrate"`
+			Pressure        float64 `json:"pressure"`
+			Temperature     float64 `json:"temperature"`
+			FlowChangeRate  float64 `json:"flow_change_rate"`
+			PressChangeRate float64 `json:"press_change_rate"`
+			TempChangeRate  float64 `json:"temp_change_rate"`
+			AnomalyScore    float64 `json:"anomaly_score"`
+			AnomalyLevel    string  `json:"anomaly_level"`
+		}{
+			Timestamp:       currentFlowRateTimestamp, // Use the timestamp from the flowrate data
+			FlowRate:        currentFlowRateValue,
+			Pressure:        currentPressureValue,
+			Temperature:     currentTemperatureValue,
+			FlowChangeRate:  flowChangeRate,
+			PressChangeRate: pressureChangeRate,
+			TempChangeRate:  temperatureChangeRate,
+			AnomalyScore:    anomalyScore,
+			AnomalyLevel:    string(anomalyLevel),
+		}
+
+		responseBytes, err := json.Marshal(response)
 
 		if err != nil {
 			fmt.Printf("Error marshaling response: %v\n", err)
-			continue
 		}
 
 		websocket.PostMessage(responseBytes)
