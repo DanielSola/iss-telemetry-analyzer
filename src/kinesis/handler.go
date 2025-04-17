@@ -99,7 +99,12 @@ func Handler(ctx context.Context, kinesisEvent events.KinesisEvent) error {
 			fmt.Printf("Score: %f, Average: %f, Standard Deviation: %f, Anomaly Level: %s\n", result.Score, result.Average, result.StandardDeviation, anomalyLevel)
 		}
 
-		dynamo.StoreTelemetryData(anomalyScore, currentPressureValue, currentTemperatureValue, currentFlowRateValue, (anomalyLevel))
+		err := dynamo.StoreTelemetryData(anomalyScore, currentPressureValue, currentTemperatureValue, currentFlowRateValue, anomalyLevel)
+
+		if err != nil {
+
+			fmt.Println("ERRR ", err)
+		}
 
 		response := struct {
 			Timestamp       string  `json:"timestamp"`
@@ -140,7 +145,6 @@ func Handler(ctx context.Context, kinesisEvent events.KinesisEvent) error {
 		previousTemperatureValue = currentTemperatureValue
 
 		websocket.PostMessage(responseBytes)
-
 	}
 
 	return nil
