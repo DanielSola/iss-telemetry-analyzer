@@ -7,36 +7,15 @@ import (
 	"iss-telemetry-analyzer/src/api"
 	"iss-telemetry-analyzer/src/kinesis"
 	"iss-telemetry-analyzer/src/websocket"
-	"os"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
-)
-
-type Record struct {
-	EventSource    string
-	EventSourceArn string
-	AWSRegion      string
-	S3             events.S3Entity
-	SQS            events.SQSMessage
-	SNS            events.SNSEntity
-}
-
-// Event incoming event
-type Event struct {
-	Records []Record
-}
-
-var (
-	sagemakerEndpointURL = os.Getenv("SAGEMAKER_ENDPOINT_NAME") // TODO: Leer el endpoint de aqui y hacer predicciones
 )
 
 // Determine which handler to start based on event type
 func main() {
 	lambda.Start(func(ctx context.Context, event json.RawMessage) (interface{}, error) {
 		eventType, err := kinesis.DetectEventType(event)
-
-		fmt.Println("EVENT TIPE ", eventType)
 
 		if err != nil {
 			fmt.Println("Error detecting event type:", err)

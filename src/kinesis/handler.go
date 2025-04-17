@@ -102,7 +102,6 @@ func Handler(ctx context.Context, kinesisEvent events.KinesisEvent) error {
 		err := dynamo.StoreTelemetryData(anomalyScore, currentPressureValue, currentTemperatureValue, currentFlowRateValue, anomalyLevel)
 
 		if err != nil {
-
 			fmt.Println("ERRR ", err)
 		}
 

@@ -49,11 +49,15 @@ func StoreTelemetryData(score, pressure, temperature, flowrate float64, level ut
 		},
 	}
 
-	_, err := client.PutItem(input)
+	fmt.Println("StoreTelemetryData", input)
+
+	output, err := client.PutItem(input)
 
 	if err != nil {
 		return fmt.Errorf("failed to put item: %w", err)
 	}
+
+	fmt.Println("Stored!", output)
 
 	return nil
 }

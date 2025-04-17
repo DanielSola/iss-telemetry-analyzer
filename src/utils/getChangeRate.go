@@ -17,7 +17,6 @@ func GetChangeRate(currentValue float64, previousValue float64, currentTimestamp
 	}
 
 	if timeDiff == 0 {
-		fmt.Printf("Time difference is zero between: %s and %s\n", currentTimestamp, previousTimestamp)
 		return 0 // Avoid division by zero
 	}
 

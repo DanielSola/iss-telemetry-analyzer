@@ -3,7 +3,6 @@ package sagemaker
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"os"
 
@@ -44,8 +43,6 @@ func Predict(values []float64) float64 {
 	}
 
 	payloadBytes, _ := json.Marshal(payload)
-
-	fmt.Println("PREDICT PAYLOAD: ", payload)
 
 	// Invoke SageMaker endpoint
 	output, err := client.InvokeEndpoint(context.TODO(), &sagemakerruntime.InvokeEndpointInput{

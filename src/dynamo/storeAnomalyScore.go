@@ -20,8 +20,6 @@ func StoreAnomalyScore(newScore float64) types.StoreAnomalyScoreResult {
 		},
 	})
 
-	fmt.Println("Error fetch", err)
-
 	if err != nil {
 		return types.StoreAnomalyScoreResult{
 			Error: fmt.Errorf("failed to fetch existing scores: %w", err),
