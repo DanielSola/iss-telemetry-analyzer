@@ -17,7 +17,7 @@ func StoreTelemetryData(score, pressure, temperature, flowrate float64, level ut
 
 	partitionKey := "device" // Static key since you're storing one day of data
 	sortKey := now.Format(time.RFC3339)
-	ttl := now.Add(24 * time.Hour).Unix()
+	ttl := now.Add(1 * time.Hour).Unix()
 
 	input := &dynamodb.PutItemInput{
 		TableName: aws.String("TelemetryData"),
@@ -49,15 +49,11 @@ func StoreTelemetryData(score, pressure, temperature, flowrate float64, level ut
 		},
 	}
 
-	fmt.Println("StoreTelemetryData", input)
-
-	output, err := client.PutItem(input)
+	_, err := client.PutItem(input)
 
 	if err != nil {
 		return fmt.Errorf("failed to put item: %w", err)
 	}
-
-	fmt.Println("Stored!", output)
 
 	return nil
 }

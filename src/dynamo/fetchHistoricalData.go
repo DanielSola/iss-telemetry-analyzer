@@ -2,6 +2,7 @@ package dynamo
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -11,7 +12,7 @@ import (
 
 type TelemetryData struct {
 	PK           string  `json:"PK"`
-	SK           string  `json:"SK"`
+	SK           string  `json:"SK"` // ISO 8601 timestamp
 	Score        float64 `json:"score"`
 	Pressure     float64 `json:"pressure"`
 	Temperature  float64 `json:"temperature"`
@@ -57,6 +58,11 @@ func FetchHistoricalData() ([]TelemetryData, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Sort the results by SK (timestamp) in descending order
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].SK > results[j].SK // Most recent first
+	})
 
 	return results, nil
 }
