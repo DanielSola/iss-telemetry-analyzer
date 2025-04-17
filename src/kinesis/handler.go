@@ -129,6 +129,16 @@ func Handler(ctx context.Context, kinesisEvent events.KinesisEvent) error {
 			fmt.Printf("Error marshaling response: %v\n", err)
 		}
 
+		// Update values
+		previousFlowrateTimestamp = currentFlowRateTimestamp
+		previousFlowrateValue = currentFlowRateValue
+
+		previousPressureTimestamp = currentPressureTimestamp
+		previousPressureValue = currentPressureValue
+
+		previousTemperatureTimestamp = currentTemperatureTimestamp
+		previousTemperatureValue = currentTemperatureValue
+
 		websocket.PostMessage(responseBytes)
 
 	}
