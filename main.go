@@ -18,7 +18,6 @@ func main() {
 		eventType, err := kinesis.DetectEventType(event)
 
 		if err != nil {
-			fmt.Println("Error detecting event type:", err)
 			return nil, err
 		}
 

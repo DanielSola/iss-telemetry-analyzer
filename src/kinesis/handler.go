@@ -133,6 +133,29 @@ func Handler(ctx context.Context, kinesisEvent events.KinesisEvent) error {
 			fmt.Printf("Error marshaling response: %v\n", err)
 		}
 
+		// Log the telemetry data for querying in Grafana (structured JSON format)
+		logData := map[string]interface{}{
+			"timestamp":         currentFlowRateTimestamp,
+			"flowrate":          currentFlowRateValue,
+			"pressure":          currentPressureValue,
+			"temperature":       currentTemperatureValue,
+			"flow_change_rate":  flowChangeRate,
+			"press_change_rate": pressureChangeRate,
+			"temp_change_rate":  temperatureChangeRate,
+			"anomaly_score":     anomalyScore,
+			"anomaly_level":     anomalyLevel,
+			"log_type":          "telemetry_data", // A tag for identifying the type of log entry
+		}
+
+		logDataBytes, err := json.Marshal(logData)
+
+		if err != nil {
+			fmt.Printf("Error marshaling log data: %v\n", err)
+		} else {
+			// Print log data as JSON for CloudWatch and Grafana to query
+			fmt.Println(string(logDataBytes))
+		}
+
 		// Update values
 		previousFlowrateTimestamp = currentFlowRateTimestamp
 		previousFlowrateValue = currentFlowRateValue

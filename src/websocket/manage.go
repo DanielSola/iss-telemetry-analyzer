@@ -2,7 +2,6 @@ package websocket
 
 import (
 	"context"
-	"fmt"
 	"iss-telemetry-analyzer/src/dynamo"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -20,7 +19,6 @@ type WebSocketConnection struct {
 func Manage(ctx context.Context, req events.APIGatewayWebsocketProxyRequest) (events.APIGatewayProxyResponse, error) {
 	switch req.RequestContext.RouteKey {
 	case "$connect":
-		fmt.Println("New connection:", req.RequestContext.ConnectionID)
 		err := storeConnection(req.RequestContext.ConnectionID)
 		if err != nil {
 			return events.APIGatewayProxyResponse{StatusCode: 500, Body: "Failed to store connection"}, err
@@ -28,7 +26,6 @@ func Manage(ctx context.Context, req events.APIGatewayWebsocketProxyRequest) (ev
 		return events.APIGatewayProxyResponse{StatusCode: 200}, nil
 
 	case "$disconnect":
-		fmt.Println("Disconnected:", req.RequestContext.ConnectionID)
 		err := deleteConnection(req.RequestContext.ConnectionID)
 		if err != nil {
 			return events.APIGatewayProxyResponse{StatusCode: 500, Body: "Failed to delete connection"}, err

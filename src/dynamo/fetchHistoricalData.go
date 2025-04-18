@@ -1,7 +1,6 @@
 package dynamo
 
 import (
-	"fmt"
 	"sort"
 	"time"
 
@@ -25,8 +24,6 @@ func FetchHistoricalData() ([]TelemetryData, error) {
 	now := time.Now()
 
 	oneHourAgo := now.Add(-1 * time.Hour).UTC().Format(time.RFC3339) // Convert to ISO 8601 format
-
-	fmt.Println("TIMESTAMP", oneHourAgo)
 
 	client := GetDynamoDBClient()
 
