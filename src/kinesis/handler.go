@@ -105,9 +105,9 @@ func Handler(ctx context.Context, kinesisEvent events.KinesisEvent) error {
 			"temp_change_rate":  temperatureChangeRate,
 			"anomaly_score":     anomalyScore,
 			//"anomaly_level":     anomalyLevel,
-			"log_type":            "telemetry_data", // A tag for identifying the type of log entry
-			"last_hour_avg_score": scoreResult.Average,
-			"last_hour_avg_std":   scoreResult.StandardDeviation,
+			"log_type":         "telemetry_data", // A tag for identifying the type of log entry
+			"moving_avg_score": scoreResult.Average,
+			"moving_avg_std":   scoreResult.StandardDeviation,
 		}
 
 		logDataBytes, err := json.Marshal(logData)
