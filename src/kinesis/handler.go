@@ -34,7 +34,6 @@ func Handler(ctx context.Context, kinesisEvent events.KinesisEvent) error {
 	// Process each Kinesis record
 	record := kinesisEvent.Records[0]
 	dataBytes := record.Kinesis.Data
-	fmt.Printf("Received Kinesis record: %s\n", dataBytes)
 
 	var telemetryData types.TelemetryData
 
