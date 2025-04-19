@@ -2,9 +2,10 @@ package dynamo
 
 import (
 	"fmt"
+	"time"
+
 	"iss-telemetry-analyzer/src/types"
 	"iss-telemetry-analyzer/src/utils"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
@@ -27,12 +28,12 @@ func StoreAnomalyScore(newScore float64) types.StoreAnomalyScoreResult {
 		}
 	}
 
-	var existingScores []float64
+	var existingScores []map[string]interface{}
 
 	if result.Item != nil && len(result.Item) > 0 {
 		// Extract the "scores" attribute from the item
 		if scoresAttr, ok := result.Item["scores"]; ok {
-			// Unmarshal the "scores" attribute into a []float64
+			// Unmarshal the "scores" attribute into a []map[string]interface{}
 			if err := dynamodbattribute.Unmarshal(scoresAttr, &existingScores); err != nil {
 				fmt.Printf("Failed to unmarshal existing scores: %v\n", err)
 				return types.StoreAnomalyScoreResult{
@@ -41,30 +42,52 @@ func StoreAnomalyScore(newScore float64) types.StoreAnomalyScoreResult {
 			}
 		} else {
 			// Initialize an empty array if the "scores" attribute does not exist
-			existingScores = []float64{}
+			existingScores = []map[string]interface{}{}
 		}
 	} else {
 		// Initialize an empty array if the table is empty or key does not exist
-		existingScores = []float64{}
+		existingScores = []map[string]interface{}{}
 	}
 
-	// Calculate the average and std of existingScores
-	avgAnomalyScore := utils.Average(existingScores)
-	stdAnomalyScore := utils.StandardDeviation((existingScores))
-
-	// Append the new score to the front of the existing array
-	existingScores = append([]float64{newScore}, existingScores...)
-
-	// Limit the array to the most recent 24 values. 24 x 5 = 120 seconds of memory = 2 mins
-	if len(existingScores) > 25 {
-		existingScores = existingScores[:25]
+	// Filter out scores older than 1 hour
+	oneHourAgo := time.Now().UTC().Add(-1 * time.Minute)
+	var filteredScores []map[string]interface{}
+	for _, scoreEntry := range existingScores {
+		if timestampStr, ok := scoreEntry["timestamp"].(string); ok {
+			timestamp, err := time.Parse(time.RFC3339, timestampStr)
+			if err != nil {
+				fmt.Printf("Error parsing timestamp: %v\n", err)
+				continue
+			}
+			if timestamp.After(oneHourAgo) {
+				filteredScores = append(filteredScores, scoreEntry)
+			}
+		}
 	}
+
+	// Calculate the average and std of filteredScores
+	var scoresOnly []float64
+	for _, scoreEntry := range filteredScores {
+		if score, ok := scoreEntry["anomalyScore"].(float64); ok {
+			scoresOnly = append(scoresOnly, score)
+		}
+	}
+
+	avgAnomalyScore := utils.Average(scoresOnly)
+	stdAnomalyScore := utils.StandardDeviation(scoresOnly)
+
+	// Append the new score and timestamp to the front of the filtered array
+	newEntry := map[string]interface{}{
+		"anomalyScore": newScore,
+		"timestamp":    time.Now().UTC().Format(time.RFC3339), // Current timestamp in ISO 8601 format
+	}
+
+	filteredScores = append([]map[string]interface{}{newEntry}, filteredScores...)
 
 	// Marshal the updated scores array
 	item, err := dynamodbattribute.MarshalMap(map[string]interface{}{
 		"key":    "scores",
-		"scores": existingScores,
-		"ttl":    time.Now().Add(60 * time.Minute).Unix(), // Set TTL to 60 minutes from now
+		"scores": filteredScores,
 	})
 
 	if err != nil {
