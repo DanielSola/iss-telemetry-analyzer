@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"iss-telemetry-analyzer/src/dynamo"
 	"iss-telemetry-analyzer/src/sagemaker"
 	"iss-telemetry-analyzer/src/types"
 	"iss-telemetry-analyzer/src/utils"
@@ -87,6 +88,8 @@ func Handler(ctx context.Context, kinesisEvent events.KinesisEvent) error {
 
 		var anomalyScore = sagemaker.Predict(features)
 
+		scoreResult := dynamo.StoreAnomalyScore(anomalyScore)
+
 		// Log the telemetry data for querying in Grafana (structured JSON format)
 		logData := map[string]interface{}{
 			"timestamp":         currentFlowRateTimestamp,
@@ -99,6 +102,7 @@ func Handler(ctx context.Context, kinesisEvent events.KinesisEvent) error {
 			"anomaly_score":     anomalyScore,
 			//"anomaly_level":     anomalyLevel,
 			"log_type": "telemetry_data", // A tag for identifying the type of log entry
+			"last_hour_avg_score": scoreResult.Average
 		}
 
 		logDataBytes, err := json.Marshal(logData)

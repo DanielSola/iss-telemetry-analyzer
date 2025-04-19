@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"iss-telemetry-analyzer/src/types"
 	"iss-telemetry-analyzer/src/utils"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
@@ -63,6 +64,7 @@ func StoreAnomalyScore(newScore float64) types.StoreAnomalyScoreResult {
 	item, err := dynamodbattribute.MarshalMap(map[string]interface{}{
 		"key":    "scores",
 		"scores": existingScores,
+		"ttl":    time.Now().Add(60 * time.Minute).Unix(), // Set TTL to 60 minutes from now
 	})
 
 	if err != nil {
