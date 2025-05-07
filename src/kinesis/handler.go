@@ -96,18 +96,19 @@ func Handler(ctx context.Context, kinesisEvent events.KinesisEvent) error {
 
 		// Log the telemetry data for querying in Grafana (structured JSON format)
 		logData := map[string]interface{}{
-			"timestamp":         currentFlowRateTimestamp,
-			"flowrate":          currentFlowRateValue,
-			"pressure":          currentPressureValue,
-			"temperature":       currentTemperatureValue,
-			"flow_change_rate":  flowChangeRate,
-			"press_change_rate": pressureChangeRate,
-			"temp_change_rate":  temperatureChangeRate,
-			"anomaly_score":     anomalyScore,
-			//"anomaly_level":     anomalyLevel,
-			"log_type":         "telemetry_data", // A tag for identifying the type of log entry
-			"moving_avg_score": scoreResult.Average,
-			"moving_avg_std":   scoreResult.StandardDeviation,
+			"timestamp":                           currentFlowRateTimestamp,
+			"flowrate":                            currentFlowRateValue,
+			"pressure":                            currentPressureValue,
+			"temperature":                         currentTemperatureValue,
+			"flow_change_rate":                    flowChangeRate,
+			"press_change_rate":                   pressureChangeRate,
+			"temp_change_rate":                    temperatureChangeRate,
+			"anomaly_score":                       anomalyScore,
+			"log_type":                            "telemetry_data",
+			"moving_avg_score":                    scoreResult.Average,
+			"moving_avg_std":                      scoreResult.StandardDeviation,
+			"upper_anomaly_score_deviation_limit": scoreResult.Average + 3*scoreResult.StandardDeviation,
+			"lower_anomaly_score_deviation_limit": scoreResult.Average - 3*scoreResult.StandardDeviation,
 		}
 
 		logDataBytes, err := json.Marshal(logData)
