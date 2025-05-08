@@ -8,6 +8,7 @@ import (
 	"iss-telemetry-analyzer/src/sagemaker"
 	"iss-telemetry-analyzer/src/types"
 	"iss-telemetry-analyzer/src/utils"
+	"os"
 	"strconv"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -86,7 +87,17 @@ func Handler(ctx context.Context, kinesisEvent events.KinesisEvent) error {
 			flowChangeRate, pressureChangeRate, temperatureChangeRate,
 		}
 
-		var anomalyScore = sagemaker.Predict(features)
+		scalerParams, err := sagemaker.LoadRobustScalerParams()
+
+		if err != nil {
+			fmt.Println("Error scaling features: ", err)
+
+			os.Exit(1)
+		}
+
+		scaledFeatures := sagemaker.RobustScale(features, scalerParams)
+
+		var anomalyScore = sagemaker.Predict(scaledFeatures)
 
 		scoreResult := dynamo.StoreAnomalyScore(anomalyScore)
 
