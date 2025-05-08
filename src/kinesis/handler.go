@@ -96,6 +96,7 @@ func Handler(ctx context.Context, kinesisEvent events.KinesisEvent) error {
 		}
 
 		scaledFeatures := sagemaker.RobustScale(features, scalerParams)
+		fmt.Println("Scaled features!: ", scaledFeatures)
 
 		var anomalyScore = sagemaker.Predict(scaledFeatures)
 
