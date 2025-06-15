@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -25,8 +26,13 @@ func LoadRobustScalerParams() (*RobustScalerParams, error) {
 	svc := s3.New(sess)
 
 	// Download the parameters
+	bucketName := os.Getenv("S3_BUCKET_NAME")
+	if bucketName == "" {
+		return nil, fmt.Errorf("S3_BUCKET_NAME environment variable is not set")
+	}
+
 	result, err := svc.GetObject(&s3.GetObjectInput{
-		Bucket: aws.String("iss-historical-data"),
+		Bucket: aws.String(bucketName),
 		Key:    aws.String("models/scaler_params.json"),
 	})
 

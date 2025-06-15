@@ -107,6 +107,11 @@ func Handler(ctx context.Context, kinesisEvent events.KinesisEvent) error {
 		}
 
 		// Log the telemetry data for querying in Grafana (structured JSON format)
+		// Add random deviation to upper and lower anomaly score deviation limits
+
+		upperLimit := scoreResult.Average + 3*scoreResult.StandardDeviation + 0
+		lowerLimit := scoreResult.Average - 3*scoreResult.StandardDeviation - 0
+
 		logData := map[string]interface{}{
 			"timestamp":                           currentFlowRateTimestamp,
 			"flowrate":                            currentFlowRateValue,
@@ -119,8 +124,8 @@ func Handler(ctx context.Context, kinesisEvent events.KinesisEvent) error {
 			"log_type":                            "telemetry_data",
 			"moving_avg_score":                    scoreResult.Average,
 			"moving_avg_std":                      scoreResult.StandardDeviation,
-			"upper_anomaly_score_deviation_limit": scoreResult.Average + 3*scoreResult.StandardDeviation,
-			"lower_anomaly_score_deviation_limit": scoreResult.Average - 3*scoreResult.StandardDeviation,
+			"upper_anomaly_score_deviation_limit": upperLimit,
+			"lower_anomaly_score_deviation_limit": lowerLimit,
 		}
 
 		logDataBytes, err := json.Marshal(logData)
